@@ -1,15 +1,15 @@
 # Our Advanced Network Programming (ANP) Skeleton
 
 # Milestones
-[ ] 3 Milestone
-[ ] 4 Milestone 
-[ ] 5 Milestone 
+[ ] 3 Milestone  
+[ ] 4 Milestone   
+[ ] 5 Milestone  
 ## Bonus
-[ ] Multi-tenancy/multi-threading support in your stack
+[ ] Multi-tenancy/multi-threading support in your stack   
 [ ] Socket NON_BLOCKING features with select/poll/epoll call implementations, make a small test
-program to show they work
+program to show they work  
 ### Bonus 
-[ ] firefox
+[ ] firefox  
 
 # Advanced Network Programming (ANP) Skeleton 
 
