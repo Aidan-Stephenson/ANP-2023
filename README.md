@@ -1,3 +1,16 @@
+# Our Advanced Network Programming (ANP) Skeleton
+
+# Milestones
+[ ] 3 Milestone  
+[ ] 4 Milestone   
+[ ] 5 Milestone  
+## Bonus
+[ ] Multi-tenancy/multi-threading support in your stack   
+[ ] Socket NON_BLOCKING features with select/poll/epoll call implementations, make a small test
+program to show they work  
+### Bonus 
+[ ] firefox  
+
 # Advanced Network Programming (ANP) Skeleton 
 
 ANP skeleton is the basic skeleton code used in the ANP course for developing your 
