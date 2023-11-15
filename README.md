@@ -1,7 +1,7 @@
 # Our Advanced Network Programming (ANP) Skeleton
 
 # Milestones
-[ ] 3 Milestone  
+# [ ] 3 Milestone  
 
 ## To-Do List
 
@@ -51,8 +51,8 @@
 - Do not make assumptions about network event ordering.
 
 
-[ ] 4 Milestone   
-[ ] 5 Milestone  
+# [ ] 4 Milestone   
+# [ ] 5 Milestone  
 
 ## Bonus
 [ ] Multi-tenancy/multi-threading support in your stack   
