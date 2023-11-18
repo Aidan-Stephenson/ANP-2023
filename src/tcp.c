@@ -17,8 +17,62 @@
 #include "subuff.h"
 #include "tcp.h"
 
+#include "systems_headers.h"
+#include "ethernet.h"
+#include "utilities.h"
+#include "ip.h"
 void tcp_rx(struct subuff *sub){
     //FIXME: implement your TCP packet processing implementation here
+    // Essentially if its SYN then we need to send a SYN ACK
+    // If its an SYN ACK then we need to send an ACK and flag the socket as connected
+    // If its an ACK then we need to flag the socket as connected
+    // If its a FIN then we need to send an ACK and flag the socket as disconnected
+    // If its any other flag then we need to send an ACK, and if the socket is connected then we need to send the data to the application (somehow)
+    // If its a RST then we need to flag the socket as disconnected
+
     free_sub(sub);
     assert(false);
+}
+
+// Returns the number of bytes 
+int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
+    // if no sub is provided, create one
+    if (sub == NULL) {
+        sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN + payload_len);
+        if (sub == NULL) {
+            return -ENOMEM;
+        }
+    }
+
+    // Create a new tcp header
+    struct tcp_hdr *tcp_hdr = (struct tcp_hdr *)sub_push(sub, sizeof(struct tcp_hdr));
+    if (tcp_hdr == NULL) {
+        return -ENOMEM;
+    }
+
+    // Set the fields
+    tcp_hdr->src_port = htons(src_port);
+    tcp_hdr->dst_port = htons(dst_port);
+    tcp_hdr->seq_num = htonl(seq_num);
+    tcp_hdr->ack_num = htonl(ack_num);
+    tcp_hdr->flags = flags;
+    tcp_hdr->window_size = htons(window_size);
+    tcp_hdr->urgent_ptr = htons(urgent_ptr);
+
+    // Calculate the offset
+    tcp_hdr->data_offset = sizeof(struct tcp_hdr) / 4;
+
+    // Push the payload
+    if (payload != NULL) {
+        if (sub_push(sub, payload_len) == NULL) {
+            return -ENOMEM;
+        }
+        memcpy(sub->data, payload, payload_len);
+    }
+    // Calculate the checksum
+    tcp_hdr->checksum = 0;
+    tcp_hdr->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr, sizeof(struct tcp_hdr) + payload_len, IPPROTO_TCP, htonl(get_ip_addr()), htonl(dst_ip)));
+    // Send the packet
+    
+    return ip_output(dst_ip, sub);
 }

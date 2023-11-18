@@ -24,6 +24,11 @@
 #include "anpwrapper.h"
 #include "init.h"
 
+#include "systems_headers.h"
+#include "ethernet.h"
+#include "utilities.h"
+#include "subuff.h"
+
 
 static int (*__start_main)(int (*main) (int, char * *, char * *), int argc, \
                            char * * ubp_av, void (*init) (void), void (*fini) (void), \
@@ -36,12 +41,44 @@ static int (*_connect)(int sockfd, const struct sockaddr *addr, socklen_t addrle
 static int (*_socket)(int domain, int type, int protocol) = NULL;
 static int (*_close)(int sockfd) = NULL;
 
-static bool is_anp_sockfd(){
-    //FIXME -- you can remember the file descriptors that you have generated in the socket call and match them here
-    // only take over the call for the file descriptor that you have allocated
-    assert(false);
-    return false;
+// Keep track of the file descriptors that we have allocated
+static bool fd_array[MAX_FILE_DESCRIPTORS] = {false};
+static struct anp_socket_t *socket_array[MAX_FILE_DESCRIPTORS] = {NULL};
+
+int anp_fd_alloc(){
+    for(int i = 0; i < MAX_FILE_DESCRIPTORS; i++){
+        if(fd_array[i] == false){
+            fd_array[i] = true;
+            // Allocate a new socket
+            struct anp_socket_t *new_socket = (struct anp_socket_t *) malloc(sizeof(struct anp_socket_t));
+            new_socket->fd = GET_ANP_FD(i);
+            new_socket->state = SOCKET_STATE_UNCONNECTED;
+            socket_array[i] = new_socket;
+            return GET_ANP_FD(i);
+        }
+    }
+    return -1;
 }
+
+int anp_fd_free(int fd){
+    fd = GET_REAL_FD(fd);
+    if(fd < 0 || fd >= MAX_FILE_DESCRIPTORS){
+        return -1;
+    }
+    free(socket_array[fd]); // bye bye socket
+    fd_array[fd] = false;
+    return 0;
+}
+
+// Function to check if the file descriptor is allocated by the anpnetstack
+static bool is_anp_sockfd(int fd){
+    fd = GET_REAL_FD(fd);
+    if(fd < 0 || fd >= MAX_FILE_DESCRIPTORS){
+        return false;
+    }
+    return fd_array[fd];
+}
+
 static int is_socket_supported(int domain, int type, int protocol)
 {
     // we are only going to handle TCP STREAM sockets on the IPv4
@@ -58,24 +95,83 @@ static int is_socket_supported(int domain, int type, int protocol)
     return 1;
 }
 
-// TODO: ANP milestones 3 and 4
+
+
+/**
+ * @brief Wrapper function for the socket system call.
+ *
+ * This function checks if the specified socket parameters are supported by the anpnetstack.
+ *
+ * @param domain The domain of the socket (AF_INET, AF_INET6, etc.).
+ * @param type The type of the socket (STREAM, DGRAM, RAW, etc.).
+ * @param protocol The protocol of the socket (IPPROTO_TCP, IPPROTO_UDP, etc.).
+ * 
+ * Note: we handle TCP STREAM sockets on the IPv4 only.
+ * 
+ * @return The file descriptor of the created socket, or -1 if an error occurred.
+ */
 int socket(int domain, int type, int protocol) {
-    int ret = -ENOSYS;
+    int ret = 0;
     if (is_socket_supported(domain, type, protocol)) {
-        //TODO: implement your logic here
-        assert(ret == 0);
-        return ret;
+        // Lets start by allocating a file descriptor
+        int fd = anp_fd_alloc();
+        if(fd < 0){
+            return -EMFILE;
+        }
+        // Initialize the socket
+        struct anp_socket_t *new_socket = socket_array[GET_REAL_FD(fd)];
+        new_socket->domain = domain;
+        new_socket->type = type;
+        new_socket->protocol = protocol;
+        return fd;
     }
     // if this is not what anpnetstack support, let it go, let it go!
     return _socket(domain, type, protocol);
 }
 
+/**
+ * @brief Wrapper function for the connect system call.
+ *
+ *  The connect() system call connects the socket referred to by the
+    file descriptor sockfd to the address specified by addr.  The
+    addrlen argument specifies the size of addr.  The format of the
+    address in addr is determined by the address space of the socket
+    sockfd; see socket(2) for further details.
+ *
+ * @param sockfd The file descriptor of the socket.
+ * @param addr The address structure of the destination.
+ * @param addrlen The length of the address structure.
+ * 
+ * @return 0 if the connection was successful, or -1 if an error occurred.
+ */
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    int ret = -ENOSYS;
-    if(is_anp_sockfd()){
-        assert(ret == 0);
-        //TODO: implement your logic here
+    int ret = 0;
+    if(is_anp_sockfd(sockfd)){
+        // Fill in the destination IP address and port number
+        struct sockaddr_in *dest_addr = (struct sockaddr_in *) addr;
+        struct anp_socket_t *socket = socket_array[GET_REAL_FD(sockfd)];
+        socket->dst_ip = dest_addr->sin_addr.s_addr;
+        socket->dst_port = dest_addr->sin_port;
+
+        // Print the connection details
+        printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
+
+
+
+        // Ok bois this is the briefing for the mission.
+        // We need to send a SYN packet to the destination.
+        // Then, we need to wait for a SYN-ACK packet from the destination.
+        // Then, we need to send an ACK packet to the destination.
+        // After that, we are connected to the destination. Yay!
+        // We most likely need to give up generally. Boo!
+
+        // Print the connection status
+        if (ret == 0) {
+            printf("Connection successful\n");
+        } else {
+            printf("Connection failed\n");
+        }
         return ret;
     }
     // the default path
@@ -86,7 +182,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
     int ret = -ENOSYS;
-    if(is_anp_sockfd()) {
+    if(is_anp_sockfd(sockfd)) {
         //TODO: implement your logic here
         assert(ret == 0);
         return ret;
@@ -97,7 +193,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 
 ssize_t recv (int sockfd, void *buf, size_t len, int flags){
     int ret = -ENOSYS;
-    if(is_anp_sockfd()) {
+    if(is_anp_sockfd(sockfd)) {
         //TODO: implement your logic here
         assert(ret == 0);
         return ret;
@@ -107,11 +203,9 @@ ssize_t recv (int sockfd, void *buf, size_t len, int flags){
 }
 
 int close (int sockfd){
-    int ret = -ENOSYS;
-    if(is_anp_sockfd()) {
-        //TODO: implement your logic here
-        assert(ret == 0);
-        return ret;
+    if(is_anp_sockfd(sockfd)) {
+        anp_fd_free(sockfd);
+        return 0;
     }
     // the default path
     return _close(sockfd);

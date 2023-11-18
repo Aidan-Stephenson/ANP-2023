@@ -54,7 +54,21 @@ enum tcp_states {
 //https://rsjakob.gitbooks.io/iqt-network-programming/osi-layer-4/tcp-header.html
 // FIXME: define a TCP header format
 struct tcp_hdr {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq_num;
+    uint32_t ack_num;
+    uint8_t data_offset; //  Size of TCP header in 32bit words
+    uint8_t flags;
+    //checksum
+    uint16_t csum;
+
+    uint16_t window_size; 
+    uint16_t checksum; 
+    uint16_t urgent_ptr; // We don't support this, but its part of the header
 } __attribute__((packed));
 
 void tcp_rx(struct subuff *sub);
+
+#define TCP_HDR_LEN sizeof(struct tcp_hdr)
 #endif //ANPNETSTACK_TCP_H

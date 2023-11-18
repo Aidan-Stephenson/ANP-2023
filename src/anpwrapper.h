@@ -18,6 +18,26 @@
 #ifndef ANPNETSTACK_ANPWRAPPER_H
 #define ANPNETSTACK_ANPWRAPPER_H
 
+#define MAX_FILE_DESCRIPTORS 1024
+#define FILE_DESCRIPTOR_OFFSET 1000000 // Instructed by the assignment
+
+#define GET_REAL_FD(fd) (fd - FILE_DESCRIPTOR_OFFSET)
+#define GET_ANP_FD(fd) (fd + FILE_DESCRIPTOR_OFFSET)
+
+#define SOCKET_STATE_UNCONNECTED 0
+#define SOCKET_STATE_CONNECTED 1
+#define SOCKET_STATE_FUCKED -1
+
+struct anp_socket_t {
+    int fd;
+    int domain;
+    int type;
+    int protocol;
+    int state;
+    uint32_t dst_ip;
+    uint16_t dst_port;
+};
+
 void _function_override_init();
 
 #endif //ANPNETSTACK_ANPWRAPPER_H
