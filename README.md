@@ -1,9 +1,59 @@
 # Our Advanced Network Programming (ANP) Skeleton
 
 # Milestones
-[ ] 3 Milestone  
-[ ] 4 Milestone   
-[ ] 5 Milestone  
+# [ ] 3 Milestone  
+
+## To-Do List
+
+- [x] Setup the server-client example program with the Linux netstack.
+- [ ] Use `tcpdump` to capture packets and understand network behavior.
+- [ ] Execute the client side code with the ANP netstack.
+- [ ] Implement `socket`, `connect`, and other system calls relevant to TCP/IP communication.
+- [ ] Design data structures and TCP state machine for managing connections.
+- [ ] Ensure proper checksum calculation for outgoing packets.
+- [ ] Manage TCP connection states using a proper state machine.
+- [ ] Zip the complete source code, including your implementation and the framework.
+- [ ] Upload the implementaiton as a .zip file on Canvas before the deadline.
+- [ ] Create 1-2 slides or sketches visualizing the implemented code and data structures.
+
+## Testing Your Implementation
+
+1. **Before connecting**: Confirm that the server is set up and open for connections.
+2. **While connecting**: Use `tcpdump` to verify the correct TCP three-way handshake is taking place.
+3. **After connection**: Look for the server's acknowledgment that a new connection has been established.
+4. **Loss simulation**: Test how your implementation handles packet loss, delays, and retransmissions.
+
+## Implementation Details
+
+### Socket()
+- **Functionality**: Allocates a new socket.
+- **Parameters**: Needs to consider socket domain, type, and protocol as inputs.
+- **File Descriptor Management**: Track and manage your range of file descriptors.
+
+### Connect()
+- **Functionality**: Establishes a connection to a server.
+- **Params**: Requires server address and port.
+- **TCP Handshake**: Ensures the three-way handshake is properly executed.
+- **Checksum**: Calculates and validates TCP packet checksums.
+- **Retries and Timeouts**: Includes logic to handle packet loss and retransmissions.
+
+### Edge Cases & Error Handling
+- **Checksum Errors**: Make sure that checksum calculations are accurate and consider edge case scenarios (like loopback connections, we still NEED to calculate de csum).
+- **Lost Packets**: Implement retransmissions and exponential backoff where appropriate.
+- **Duplicate Packets**: Guard against handling duplicates that might disrupt TCP state.
+- **Unordered Packets**: Ensure that your state machine can handle out-of-order packets gracefully.
+
+## Notes
+- Focus on error handling and robustness.
+- Follow RFC 793 (TCP)[https://tools.ietf.org/html/rfc793] when in doubt.
+- Avoid hardcoded logic; aim for adaptability and flexibility.
+- Disable checksum offloading on NICs to avoid unexpected behavior.
+- Do not make assumptions about network event ordering.
+
+
+# [ ] 4 Milestone   
+# [ ] 5 Milestone  
+
 ## Bonus
 [ ] Multi-tenancy/multi-threading support in your stack   
 [ ] Socket NON_BLOCKING features with select/poll/epoll call implementations, make a small test
