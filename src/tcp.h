@@ -72,3 +72,27 @@ void tcp_rx(struct subuff *sub);
 
 #define TCP_HDR_LEN sizeof(struct tcp_hdr)
 #endif //ANPNETSTACK_TCP_H
+
+/* This segment is not part of the given framework and most likely to contain bugs */
+#include "ethernet.h"
+#include "ip.h"
+#include "utilities.h"
+
+static inline struct tcp_hdr *tcp_header(struct subuff *sub)
+{
+    return (struct tcp_hdr *)(sub->head + ETH_HDR_LEN + IP_HDR_LEN);
+}
+
+#define TCP_DEBUG
+#ifdef TCP_DEBUG
+
+#define debug_TCP(str, hdr)                                               \
+    do {                                                                \
+        printf("tcp %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu"          \
+                    "checksum: %.4hx)\n",         \
+                    str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->csum);                         \
+    } while (0)
+
+#endif // ICMP_DEBUG
+
+/* End segment */

@@ -166,6 +166,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // After that, we are connected to the destination. Yay!
         // We most likely need to give up generally. Boo!
 
+        tcp_tx();
+
         // Print the connection status
         if (ret == 0) {
             printf("Connection successful\n");

@@ -61,6 +61,17 @@ void route_init()
     route_add(0, ip_str_to_h32(ANP_IP_TAP_DEV), 0, RT_GATEWAY, cdev_ext);
 }
 
+/**
+ * @brief Looks up a route entry based on the destination address.
+ *
+ * This function searches for a route entry in the list of routes based on the destination address.
+ * It iterates through the list and compares the destination address with the network address and netmask of each route entry.
+ * If a match is found, the corresponding route entry is returned.
+ * If no match is found, the function returns NULL, indicating that the default gateway should be used.
+ *
+ * @param daddr The destination address to lookup.
+ * @return A pointer to the matching route entry, or NULL if no match is found.
+ */
 struct rtentry *route_lookup(uint32_t daddr)
 {
     struct list_head *item;
