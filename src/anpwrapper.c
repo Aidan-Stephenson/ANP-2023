@@ -166,7 +166,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // After that, we are connected to the destination. Yay!
         // We most likely need to give up generally. Boo!
 
+        // Send sync
         tcp_tx();
+
+        // Poll untill timeout || sync-ack
+        while (1) {}
 
         // Print the connection status
         if (ret == 0) {

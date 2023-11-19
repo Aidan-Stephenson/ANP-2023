@@ -28,8 +28,6 @@
 void tcp_rx(struct subuff *sub){
     printf("Called tcp_rx!\n");
 
-    // Get tcp session????? -> have global variable with tcp states
-
     //FIXME: implement your TCP packet processing implementation here
     // Essentially if its SYN then we need to send a SYN ACK
     // If its an SYN ACK then we need to send an ACK and flag the socket as connected
@@ -42,12 +40,22 @@ void tcp_rx(struct subuff *sub){
 
     debug_TCP("packet:", tcp_hdr);
 
+    // Get packet type -> tcp flags
+    // if syn->
+        // send syn ack
+    // if syn-ack -> 
+        // Iterate through tcp sessions, see if dst_h + dst_port + src_h + src_port match -> set tcp session 
+        // return ack
+    // if rst ->
+        // disconnect
+    // otherwise drop
 
     free_sub(sub);
     assert(false);
 }
 
 // Returns the number of bytes 
+// TODO: refactor, take tcp header + payload, create sub, send
 int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
     printf("Called tcp_tx!\n");
 

@@ -78,6 +78,19 @@ void tcp_rx(struct subuff *sub);
 #include "ip.h"
 #include "utilities.h"
 
+// TODO: refactor/add payload, cause won't work for recv/send()
+struct tcp_ses {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t saddr;
+    uint32_t daddr;
+    tcp_states state;
+}
+
+// Add global struct array with tcp_ses
+// TODO: allocate stuff
+tcp_ses* TCP_SESSIONS = []
+
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {
     return (struct tcp_hdr *)(sub->head + ETH_HDR_LEN + IP_HDR_LEN);
@@ -93,6 +106,6 @@ static inline struct tcp_hdr *tcp_header(struct subuff *sub)
                     str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->csum);                         \
     } while (0)
 
-#endif // ICMP_DEBUG
+#endif // TCP_DEBUG
 
 /* End segment */
