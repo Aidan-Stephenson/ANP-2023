@@ -24,6 +24,22 @@
 #include "anp_netdev.h"
 #include "route.h"
 
+
+// Function to return tcp_session from tcp_session_list
+struct tcp_ses *get_tcp_session(uint16_t dst_port) {
+    struct list_head *item;
+    struct tcp_ses *tcp_ses = TCP_SESSIONS;
+    while (tcp_ses != NULL) {
+        if (tcp_ses->dst_port == dst_port) {
+            return tcp_ses;
+        }
+        tcp_ses = tcp_ses->next;
+    }
+    
+    return NULL;
+
+}
+
 void tcp_rx(struct subuff *sub){
     printf("Called tcp_rx!\n");
 
@@ -48,28 +64,52 @@ void tcp_rx(struct subuff *sub){
 
         //SYN ACK Attempt
         struct tcp_hdr syn_ack_packet;
-            //syn_ack_packet.src_port = htons(src_port); // TODO: allocate port
-            syn_ack_packet.dst_port = htons(tcp_hdr->src_port); //TODO: FIND PORT
-            syn_ack_packet.seq_num = htonl(0);  //TODO: server's initial sequence number should be randomly generated
-            syn_ack_packet.ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);  //CAUTION!! conversion might be wrong //it should be seq_num from syn packet + 1
-            syn_ack_packet.flags = SYNACK; //SYNACK flag is defined as SYN+ACK
-            syn_ack_packet.window_size = htons(1600); // Honestly don't know  
-            syn_ack_packet.urgent_ptr = htons(0); // We don't use it
+        //syn_ack_packet.src_port = htons(src_port); // TODO: allocate port
+        syn_ack_packet.dst_port = htons(tcp_hdr->src_port); //TODO: FIND PORT
+        syn_ack_packet.seq_num = htonl(0);  //TODO: server's initial sequence number should be randomly generated
+        syn_ack_packet.ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);  //CAUTION!! conversion might be wrong //it should be seq_num from syn packet + 1
+        syn_ack_packet.flags = SYNACK; //SYNACK flag is defined as SYN+ACK
+        syn_ack_packet.window_size = htons(1600); // Honestly don't know  
+        syn_ack_packet.urgent_ptr = htons(0); // We don't use it
 
 
         //TODO:SEND THIS PACKET BACK TO HOST (tcp_tx)???????
-    
+        struct tcp_ses *tcp_session = get_tcp_session(ntohs(tcp_hdr->src_port));
+        if (tcp_session == NULL) {
+            printf("tcp_session is NULL\n");
+            return;
+        }
+        // Set the tcp session state to TCP_SYN_RCVD
+        tcp_session->state = TCP_SYN_RECEIVED;
 
-        // return ack //IDK what this comment means????
+        
+
+
+        // return ack
+
         printf("SYN flag is set\n");
     }
     if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {
+        struct tcp_ses *tcp_session = get_tcp_session(ntohs(tcp_hdr->src_port));
+        if (tcp_session == NULL) {
+            printf("tcp_session is NULL\n");
+            return;
+        }
         // Iterate through tcp sessions, see if dst_h + dst_port + src_h + src_port match -> set tcp session state to TCP_ESTABLISHED 
+        tcp_session->state = TCP_ESTABLISHED;
         // return ack
+
         printf("SYN flag is set\n");
     }
     if (tcp_hdr->flags & RST) {
         // If its a RST then we need to flag the socket as disconnected
+        struct tcp_ses *tcp_session = get_tcp_session(ntohs(tcp_hdr->src_port));
+        if (tcp_session == NULL) {
+            printf("tcp_session is NULL\n");
+            return;
+        }
+        tcp_session->state = TCP_CLOSED;
+
         printf("RST flag is set\n");
     }
     if (tcp_hdr->flags & PSH) {
@@ -93,17 +133,20 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
     printf("Called tcp_tx!\n");
 
     struct subuff *sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
+    sub_reserve(sub, ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
+    sub->protocol = htons(IPP_TCP); // I think? Needs follow-up!
+    
     if (sub == NULL) {
         return -ENOMEM;
     }
 
     // Create a new tcp header
     struct tcp_hdr *tcp_hdr_sub = (struct tcp_hdr *)sub_push(sub, sizeof(struct tcp_hdr));
-    if (tcp_hdr == NULL) {
+    if (tcp_hdr_sub == NULL) {
         return -ENOMEM;
     }
 
-    memcpy(tcp_hdr, tcp_hdr_sub, sizeof(struct tcp_hdr));
+    memcpy(tcp_hdr_sub, tcp_hdr, sizeof(struct tcp_hdr));
 
     // // Set the fields
     // tcp_hdr->src_port = htons(src_port);
@@ -125,7 +168,7 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
     //     memcpy(sub->data, payload, payload_len);
     // }
     // Calculate the checksum
-    tcp_hdr_sub->checksum = 0;
+    tcp_hdr_sub->csum = 0;
 
     // Get the source ip by using route_lookup and then get the dev from the rtentry
     struct rtentry *rt = route_lookup(dst_ip);
@@ -134,11 +177,15 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
     }
     uint32_t sourceip = rt->dev->addr;
 
-    tcp_hdr_sub->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
+    tcp_hdr_sub->csum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
     // Send the packet
-    
-    return ip_output(dst_ip, sub);
-        // assert(false);
+    int res = ip_output(dst_ip, sub);
+    while (res == -EAGAIN){
+        // wait for a bit and try again
+        sleep(1);
+        res = ip_output(dst_ip, sub);
+    }
+    return res;
 }
 
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
