@@ -179,7 +179,7 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
     }
     uint32_t sourceip = rt->dev->addr;
 
-    tcp_hdr_sub->csum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
+    tcp_hdr_sub->csum = do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPP_TCP, ntohl(sourceip), dst_ip);
     // Send the packet
     // TODO: Bug? 127.0.0.1 results in infinite ARP loop
     int res = ip_output(htonl(dst_ip), sub);
