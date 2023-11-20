@@ -171,6 +171,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         syc_packet->window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
         syc_packet->urgent_ptr = htons(0); // We don't use it
         debug_TCP("connect:", syc_packet);
+
         struct tcp_ses* tcp_ses = malloc(sizeof(tcp_ses));
         // tcp_ses->src_port // TODO: allocate port
         tcp_ses->dst_port = socket->dst_port;
@@ -190,6 +191,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // TODO: register session, see tcp.h for details, not fully implemented
 
         int res = send_tcp(syc_packet, socket->dst_ip);
+        free(syc_packet);
+
         // Poll using the timer.c functions to see if we have received a SYNACK
         //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
@@ -212,6 +215,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         } else {
             printf("Connection failed\n");
         }
+
+        sleep(10);
         return ret;
     }
     // the default path
