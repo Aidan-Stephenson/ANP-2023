@@ -60,13 +60,14 @@ struct tcp_hdr {
     uint16_t dst_port;
     uint32_t seq_num;
     uint32_t ack_num;
-    uint8_t data_offset; //  Size of TCP header in 32bit words
+
+    uint8_t reserved:4;
+    uint8_t data_offset:4;
+
     uint8_t flags;
     //checksum
-    uint16_t csum;
     uint16_t window_size; 
-
-    uint16_t checksum; //WE HAVE 2 CHECKSUMS TODO:
+    uint16_t csum;
     uint16_t urgent_ptr; // We don't support this, but its part of the header
 } __attribute__((packed));
 
@@ -92,11 +93,13 @@ struct tcp_ses {
     uint16_t dst_port;
     uint32_t daddr;
     int state;
+    //next pointer
+    struct tcp_ses* next;
 };
 
 // Add global struct array with tcp_ses
 // TODO: probably needs to be a linked list :(
-extern struct tcp_ses** TCP_SESSIONS;
+extern struct tcp_ses* TCP_SESSIONS;
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {
