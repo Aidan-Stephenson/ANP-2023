@@ -159,13 +159,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // Print the connection details
         printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
 
-        // Main thing left to do here is to find a way to allocate a local port and to busy wait, and a whole bunch of debugging probably.
-
         // Send sync
         struct tcp_hdr *syc_packet = malloc(sizeof(struct tcp_hdr));
         // syc_packet->src_port = htons(src_port); // TODO: allocate port
         syc_packet->dst_port = socket->dst_port;
-        syc_packet->seq_num = htonl(0); //TODO: this cant be 0 all the time because we need to assume multiple connections
+        syc_packet->seq_num = htonl(0); //TODO: Randomize
         syc_packet->ack_num = htonl(0);  //TODO: same as above
         syc_packet->flags = SYN;
         syc_packet->window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
@@ -187,8 +185,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             tcp_ses->next = TCP_SESSIONS;
             TCP_SESSIONS = tcp_ses;
         }
-
-        // TODO: register session, see tcp.h for details, not fully implemented
 
         int res = send_tcp(syc_packet, socket->dst_ip);
         free(syc_packet);
@@ -216,7 +212,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             printf("Connection failed\n");
         }
 
-        sleep(10);
         return ret;
     }
     // the default path

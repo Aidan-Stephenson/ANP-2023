@@ -54,7 +54,6 @@ enum tcp_states {
 //https://rsjakob.gitbooks.io/iqt-network-programming/osi-layer-4/tcp-header.html
 // FIXME: define a TCP header format
 
-//TODO: 
 struct tcp_hdr {
     uint16_t src_port;
     uint16_t dst_port;
@@ -98,7 +97,6 @@ struct tcp_ses {
 };
 
 // Add global struct array with tcp_ses
-// TODO: probably needs to be a linked list :(
 extern struct tcp_ses* TCP_SESSIONS;
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
