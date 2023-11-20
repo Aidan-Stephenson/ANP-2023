@@ -40,60 +40,78 @@ void tcp_rx(struct subuff *sub){
 
     debug_TCP("packet:", tcp_hdr);
 
-    // Get packet type -> tcp flags
-    // if syn->
-        // send syn ack
-    // if syn-ack -> 
-        // Iterate through tcp sessions, see if dst_h + dst_port + src_h + src_port match -> set tcp session 
+    if (tcp_hdr->flags & FIN) {
+        // Behavior for FIN flag
+        printf("FIN flag is set\n");
+    }
+    if (tcp_hdr->flags & SYN) {
+    // Essentially if its SYN then we need to send a SYN ACK
         // return ack
-    // if rst ->
-        // disconnect
-    // otherwise drop
+        printf("SYN flag is set\n");
+    }
+    if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {
+        // Iterate through tcp sessions, see if dst_h + dst_port + src_h + src_port match -> set tcp session state to TCP_ESTABLISHED 
+        // return ack
+        printf("SYN flag is set\n");
+    }
+    if (tcp_hdr->flags & RST) {
+        // If its a RST then we need to flag the socket as disconnected
+        printf("RST flag is set\n");
+    }
+    if (tcp_hdr->flags & PSH) {
+        // Behavior for PSH flag
+        printf("PSH flag is set\n");
+    }
+
+    if (tcp_hdr->flags & URG) {
+        // Behavior for URG flag
+        printf("URG flag is set\n");
+    }
 
     free_sub(sub);
     assert(false);
 }
 
-// Returns the number of bytes 
-// TODO: refactor, take tcp header + payload, create sub, send
-int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
+// TODO: currently doesn't have any support for payloads 
+// int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
+int tcp_tx(tcp_hdr* tcp_hdr, uint32_t dst_ip){
+
     printf("Called tcp_tx!\n");
 
-    // if no sub is provided, create one
+    struct subuff *sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
     if (sub == NULL) {
-        sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN + payload_len);
-        if (sub == NULL) {
-            return -ENOMEM;
-        }
+        return -ENOMEM;
     }
 
     // Create a new tcp header
-    struct tcp_hdr *tcp_hdr = (struct tcp_hdr *)sub_push(sub, sizeof(struct tcp_hdr));
+    struct tcp_hdr *tcp_hdr_sub = (struct tcp_hdr *)sub_push(sub, sizeof(struct tcp_hdr));
     if (tcp_hdr == NULL) {
         return -ENOMEM;
     }
 
-    // Set the fields
-    tcp_hdr->src_port = htons(src_port);
-    tcp_hdr->dst_port = htons(dst_port);
-    tcp_hdr->seq_num = htonl(seq_num);
-    tcp_hdr->ack_num = htonl(ack_num);
-    tcp_hdr->flags = flags;
-    tcp_hdr->window_size = htons(window_size);
-    tcp_hdr->urgent_ptr = htons(urgent_ptr);
+    memcpy(tcp_hdr, tcp_hdr_sub, sizeof(struct tcp_hdr));
+
+    // // Set the fields
+    // tcp_hdr->src_port = htons(src_port);
+    // tcp_hdr->dst_port = htons(dst_port);
+    // tcp_hdr->seq_num = htonl(seq_num);
+    // tcp_hdr->ack_num = htonl(ack_num);
+    // tcp_hdr->flags = flags;
+    // tcp_hdr->window_size = htons(window_size);
+    // tcp_hdr->urgent_ptr = htons(urgent_ptr);
 
     // Calculate the offset
     tcp_hdr->data_offset = sizeof(struct tcp_hdr) / 4;
 
-    // Push the payload
-    if (payload != NULL) {
-        if (sub_push(sub, payload_len) == NULL) {
-            return -ENOMEM;
-        }
-        memcpy(sub->data, payload, payload_len);
-    }
+    // // Push the payload
+    // if (payload != NULL) {
+    //     if (sub_push(sub, payload_len) == NULL) {
+    //         return -ENOMEM;
+    //     }
+    //     memcpy(sub->data, payload, payload_len);
+    // }
     // Calculate the checksum
-    tcp_hdr->checksum = 0;
+    tcp_hdr_sub->checksum = 0;
 
     // Get the source ip by using route_lookup and then get the dev from the rtentry
     struct rtentry *rt = route_lookup(dst_ip);
@@ -102,7 +120,7 @@ int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_
     }
     uint32_t sourceip = rt->dev->addr;
 
-    tcp_hdr->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr, sizeof(struct tcp_hdr) + payload_len, IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
+    tcp_hdr_sub->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr) + payload_len, IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
     // Send the packet
     
     return ip_output(dst_ip, sub);

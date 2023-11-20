@@ -23,6 +23,7 @@
 #include "linklist.h"
 #include "anpwrapper.h"
 #include "init.h"
+#include "tcp.c"
 
 #include "systems_headers.h"
 #include "ethernet.h"
@@ -157,19 +158,29 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // Print the connection details
         printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
 
-
-
-        // Ok bois this is the briefing for the mission.
-        // We need to send a SYN packet to the destination.
-        // Then, we need to wait for a SYN-ACK packet from the destination.
-        // Then, we need to send an ACK packet to the destination.
-        // After that, we are connected to the destination. Yay!
-        // We most likely need to give up generally. Boo!
+        // Main thing left to do here is to find a way to allocate a local port and to busy wait, and a whole bunch of debugging probably.
 
         // Send sync
-        tcp_tx();
+        struct tcp_hdr syc_packet;
+        // syc_packet->src_port = htons(src_port); // TODO: allocate port
+        syc_packet.dst_port = htons(socket->dst_port);
+        syc_packet.seq_num = htonl(0);
+        syc_packet.ack_num = htonl(0);
+        syc_packet.flags = SYN;
+        syc_packet.window_size = htons(1600); // Honestly don't know
+        syc_packet.urgent_ptr = htons(0); // We don't use it
 
-        // Poll untill timeout || sync-ack
+        struct tcp_ses* tcp_ses = alloc(sizeof(tcp_ses));
+        // tcp_ses->src_port // TODO: allocate port
+        tcp_ses->dst_port = socket->dst_port;
+        tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
+        tcp_ses->state = TCP_SYN_SENT;
+
+        // TODO: register session, see tcp.h for details, not fully implemented
+
+        tcp_tx(syc_packet, socket->dst_ip);
+
+        // Poll untill timeout or the session is set to TCP_ESTABLISHED
         while (1) {}
 
         // Print the connection status

@@ -78,18 +78,25 @@ void tcp_rx(struct subuff *sub);
 #include "ip.h"
 #include "utilities.h"
 
+#define FIN 0x01
+#define SYN 0x02
+#define RST 0x04
+#define PSH 0x08
+#define ACK 0x10
+#define URG 0x20
+
 // TODO: refactor/add payload, cause won't work for recv/send()
+// TODO: We also need to update it with seq/ack (and add retrans if a packet is not acked)
 struct tcp_ses {
     uint16_t src_port;
     uint16_t dst_port;
-    uint32_t saddr;
     uint32_t daddr;
     tcp_states state;
 }
 
 // Add global struct array with tcp_ses
-// TODO: allocate stuff
-tcp_ses* TCP_SESSIONS = []
+// TODO: probably needs to be a linked list :(
+struct tcp_ses* TCP_SESSIONS[];
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {
