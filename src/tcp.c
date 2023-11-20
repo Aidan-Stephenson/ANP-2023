@@ -24,7 +24,6 @@
 #include "anp_netdev.h"
 #include "route.h"
 
-
 void tcp_rx(struct subuff *sub){
     printf("Called tcp_rx!\n");
 
@@ -89,7 +88,7 @@ void tcp_rx(struct subuff *sub){
 
 // TODO: currently doesn't have any support for payloads 
 // int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
-int tcp_tx(tcp_hdr* tcp_hdr, uint32_t dst_ip){
+int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
 
     printf("Called tcp_tx!\n");
 
@@ -135,10 +134,14 @@ int tcp_tx(tcp_hdr* tcp_hdr, uint32_t dst_ip){
     }
     uint32_t sourceip = rt->dev->addr;
 
-    tcp_hdr_sub->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr) + payload_len, IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
+    tcp_hdr_sub->checksum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
     // Send the packet
     
     return ip_output(dst_ip, sub);
         // assert(false);
+}
 
+extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
+    printf("Called send_tcp!\n");
+    return tcp_tx(tcp_hdr, dst_ip);
 }

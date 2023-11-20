@@ -72,9 +72,6 @@ struct tcp_hdr {
 
 void tcp_rx(struct subuff *sub);
 
-#define TCP_HDR_LEN sizeof(struct tcp_hdr)
-#endif //ANPNETSTACK_TCP_H
-
 /* This segment is not part of the given framework and most likely to contain bugs */
 #include "ethernet.h"
 #include "ip.h"
@@ -94,17 +91,26 @@ struct tcp_ses {
     uint16_t src_port;
     uint16_t dst_port;
     uint32_t daddr;
-    tcp_states state;
-}
+    int state;
+};
 
 // Add global struct array with tcp_ses
 // TODO: probably needs to be a linked list :(
-struct tcp_ses* TCP_SESSIONS[];
+//struct tcp_ses* TCP_SESSIONS[];
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {
     return (struct tcp_hdr *)(sub->head + ETH_HDR_LEN + IP_HDR_LEN);
 }
+
+int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
+
+extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
+
+#define TCP_HDR_LEN sizeof(struct tcp_hdr)
+#endif //ANPNETSTACK_TCP_H
+
+
 
 #define TCP_DEBUG
 #ifdef TCP_DEBUG

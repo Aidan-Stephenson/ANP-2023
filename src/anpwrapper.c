@@ -23,9 +23,7 @@
 #include "linklist.h"
 #include "anpwrapper.h"
 #include "init.h"
-#include "tcp.c"
-
-#include "systems_headers.h"
+#include "tcp.h"
 #include "ethernet.h"
 #include "utilities.h"
 #include "subuff.h"
@@ -162,14 +160,14 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // Main thing left to do here is to find a way to allocate a local port and to busy wait, and a whole bunch of debugging probably.
 
         // Send sync
-        struct tcp_hdr syc_packet;
+        struct tcp_hdr *syc_packet = malloc(sizeof(struct tcp_hdr));
         // syc_packet->src_port = htons(src_port); // TODO: allocate port
-        syc_packet.dst_port = htons(socket->dst_port);
-        syc_packet.seq_num = htonl(0); //TODO: this cant be 0 all the time because we need to assume multiple connections
-        syc_packet.ack_num = htonl(0);  //TODO: same as above
-        syc_packet.flags = SYN;
-        syc_packet.window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
-        syc_packet.urgent_ptr = htons(0); // We don't use it
+        syc_packet->dst_port = htons(socket->dst_port);
+        syc_packet->seq_num = htonl(0); //TODO: this cant be 0 all the time because we need to assume multiple connections
+        syc_packet->ack_num = htonl(0);  //TODO: same as above
+        syc_packet->flags = SYN;
+        syc_packet->window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
+        syc_packet->urgent_ptr = htons(0); // We don't use it
 
         struct tcp_ses* tcp_ses = alloc(sizeof(tcp_ses));
         // tcp_ses->src_port // TODO: allocate port
@@ -179,7 +177,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
         // TODO: register session, see tcp.h for details, not fully implemented
 
-        tcp_tx(syc_packet, socket->dst_ip);
+        send_tcp(syc_packet, socket->dst_ip);
 
         // Poll using the timer.c functions to see if we have received a SYNACK
         //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
