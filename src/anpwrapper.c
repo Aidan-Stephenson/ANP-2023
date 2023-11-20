@@ -29,6 +29,7 @@
 #include "ethernet.h"
 #include "utilities.h"
 #include "subuff.h"
+#include "timer.h"
 
 
 static int (*__start_main)(int (*main) (int, char * *, char * *), int argc, \
@@ -164,10 +165,10 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         struct tcp_hdr syc_packet;
         // syc_packet->src_port = htons(src_port); // TODO: allocate port
         syc_packet.dst_port = htons(socket->dst_port);
-        syc_packet.seq_num = htonl(0);
-        syc_packet.ack_num = htonl(0);
+        syc_packet.seq_num = htonl(0); //TODO: this cant be 0 all the time because we need to assume multiple connections
+        syc_packet.ack_num = htonl(0);  //TODO: same as above
         syc_packet.flags = SYN;
-        syc_packet.window_size = htons(1600); // Honestly don't know
+        syc_packet.window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
         syc_packet.urgent_ptr = htons(0); // We don't use it
 
         struct tcp_ses* tcp_ses = alloc(sizeof(tcp_ses));
@@ -180,8 +181,21 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
         tcp_tx(syc_packet, socket->dst_ip);
 
-        // Poll untill timeout or the session is set to TCP_ESTABLISHED
-        while (1) {}
+        // Poll using the timer.c functions to see if we have received a SYNACK
+        //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
+        int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
+        int timeout = 10000; // 10 second timeout
+        while(tcp_ses->state != TCP_ESTABLISHED){
+            if(timer_get_tick() - starting_time > timeout){
+                printf("Connection timed out\n");
+                return -1;
+            }
+            else
+            {
+                /* check if SYN_ACK packet recieved */
+            }
+            
+        }
 
         // Print the connection status
         if (ret == 0) {
@@ -237,3 +251,4 @@ void _function_override_init()
     _recv = dlsym(RTLD_NEXT, "recv");
     _close = dlsym(RTLD_NEXT, "close");
 }
+

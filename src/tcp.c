@@ -44,9 +44,24 @@ void tcp_rx(struct subuff *sub){
         // Behavior for FIN flag
         printf("FIN flag is set\n");
     }
-    if (tcp_hdr->flags & SYN) {
-    // Essentially if its SYN then we need to send a SYN ACK
-        // return ack
+    if (tcp_hdr->flags & SYN && !(tcp_hdr->flags & ACK)) {
+    // Essentially if its SYN, BUT NOT SYN_ACK, then we need to send a SYN ACK
+
+        //SYN ACK Attempt
+        struct tcp_hdr syn_ack_packet;
+            //syn_ack_packet.src_port = htons(src_port); // TODO: allocate port
+            syn_ack_packet.dst_port = htons(tcp_hdr->src_port); //TODO: FIND PORT
+            syn_ack_packet.seq_num = htonl(0);  //TODO: server's initial sequence number should be randomly generated
+            syn_ack_packet.ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);  //CAUTION!! conversion might be wrong //it should be seq_num from syn packet + 1
+            syn_ack_packet.flags = SYNACK; //SYNACK flag is defined as SYN+ACK
+            syn_ack_packet.window_size = htons(1600); // Honestly don't know  
+            syn_ack_packet.urgent_ptr = htons(0); // We don't use it
+
+
+        //TODO:SEND THIS PACKET BACK TO HOST (tcp_tx)???????
+    
+
+        // return ack //IDK what this comment means????
         printf("SYN flag is set\n");
     }
     if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {

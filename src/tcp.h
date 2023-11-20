@@ -53,6 +53,8 @@ enum tcp_states {
 
 //https://rsjakob.gitbooks.io/iqt-network-programming/osi-layer-4/tcp-header.html
 // FIXME: define a TCP header format
+
+//TODO: 
 struct tcp_hdr {
     uint16_t src_port;
     uint16_t dst_port;
@@ -62,9 +64,9 @@ struct tcp_hdr {
     uint8_t flags;
     //checksum
     uint16_t csum;
-
     uint16_t window_size; 
-    uint16_t checksum; 
+
+    uint16_t checksum; //WE HAVE 2 CHECKSUMS TODO:
     uint16_t urgent_ptr; // We don't support this, but its part of the header
 } __attribute__((packed));
 
@@ -83,6 +85,7 @@ void tcp_rx(struct subuff *sub);
 #define RST 0x04
 #define PSH 0x08
 #define ACK 0x10
+#define SYNACK 0x12
 #define URG 0x20
 
 // TODO: refactor/add payload, cause won't work for recv/send()
