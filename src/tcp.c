@@ -134,19 +134,23 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
 
     struct subuff *sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
     sub_reserve(sub, ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
-    sub->protocol = htons(IPP_TCP); // I think? Needs follow-up!
     
     if (sub == NULL) {
         return -ENOMEM;
     }
 
+    sub->protocol = IPP_TCP;
+
     // Create a new tcp header
-    struct tcp_hdr *tcp_hdr_sub = (struct tcp_hdr *)sub_push(sub, sizeof(struct tcp_hdr));
+    struct tcp_hdr *tcp_hdr_sub = (struct tcp_hdr *)(sub->head + ETH_HDR_LEN + IP_HDR_LEN);
     if (tcp_hdr_sub == NULL) {
         return -ENOMEM;
     }
+    debug_TCP("packet:", tcp_hdr);
 
+    tcp_hdr->data_offset = sizeof(struct tcp_hdr) / 4;
     memcpy(tcp_hdr_sub, tcp_hdr, sizeof(struct tcp_hdr));
+    debug_TCP("packet_copy:", tcp_hdr_sub);
 
     // // Set the fields
     // tcp_hdr->src_port = htons(src_port);
@@ -157,8 +161,6 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
     // tcp_hdr->window_size = htons(window_size);
     // tcp_hdr->urgent_ptr = htons(urgent_ptr);
 
-    // Calculate the offset
-    tcp_hdr->data_offset = sizeof(struct tcp_hdr) / 4;
 
     // // Push the payload
     // if (payload != NULL) {
@@ -179,12 +181,15 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
 
     tcp_hdr_sub->csum = htons(do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPPROTO_TCP, htonl(sourceip), htonl(dst_ip)));
     // Send the packet
-    int res = ip_output(dst_ip, sub);
+    // TODO: Bug? 127.0.0.1 results in infinite ARP loop
+    int res = ip_output(htonl(dst_ip), sub);
     while (res == -EAGAIN){
         // wait for a bit and try again
+        printf("Waiting again :(\n");
         sleep(1);
-        res = ip_output(dst_ip, sub);
+        res = ip_output(htonl(dst_ip), sub);
     }
+    printf("tcp_tx result: %i\n", res);
     return res;
 }
 

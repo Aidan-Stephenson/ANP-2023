@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "linklist.h": "c",
+        "subuff.h": "c",
+        "anp_netdev.h": "c"
     }
 }
