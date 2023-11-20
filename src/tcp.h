@@ -96,7 +96,7 @@ struct tcp_ses {
 
 // Add global struct array with tcp_ses
 // TODO: probably needs to be a linked list :(
-//struct tcp_ses* TCP_SESSIONS[];
+extern struct tcp_ses** TCP_SESSIONS;
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {

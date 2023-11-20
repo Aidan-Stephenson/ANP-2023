@@ -169,7 +169,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         syc_packet->window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
         syc_packet->urgent_ptr = htons(0); // We don't use it
 
-        struct tcp_ses* tcp_ses = alloc(sizeof(tcp_ses));
+        struct tcp_ses* tcp_ses = malloc(sizeof(tcp_ses));
         // tcp_ses->src_port // TODO: allocate port
         tcp_ses->dst_port = socket->dst_port;
         tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
