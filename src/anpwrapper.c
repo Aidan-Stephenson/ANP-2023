@@ -44,6 +44,8 @@ static int (*_close)(int sockfd) = NULL;
 // Keep track of the file descriptors that we have allocated
 static bool fd_array[MAX_FILE_DESCRIPTORS] = {false};
 static struct anp_socket_t *socket_array[MAX_FILE_DESCRIPTORS] = {NULL};
+// Initialise TCP_SESSIONS to NULL by accessing the one in tcp.h
+struct tcp_ses *TCP_SESSIONS = NULL;
 
 int anp_fd_alloc(){
     for(int i = 0; i < MAX_FILE_DESCRIPTORS; i++){
@@ -174,11 +176,20 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         tcp_ses->dst_port = socket->dst_port;
         tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
         tcp_ses->state = TCP_SYN_SENT;
+        if (TCP_SESSIONS == NULL)
+        {
+            TCP_SESSIONS = tcp_ses;
+            printf("TCP_SESSIONS is NO LONGER NULL\n");
+        }
+        else
+        {
+            tcp_ses->next = TCP_SESSIONS;
+            TCP_SESSIONS = tcp_ses;
+        }
 
         // TODO: register session, see tcp.h for details, not fully implemented
 
-        send_tcp(syc_packet, socket->dst_ip);
-
+        int res = send_tcp(syc_packet, socket->dst_ip);
         // Poll using the timer.c functions to see if we have received a SYNACK
         //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
