@@ -10,7 +10,7 @@ from pwn import *
 # Set cwd to project root
 os.chdir(sys.path[0])
 
-DEBUG_DIR = datetime.now().strftime("debug/%Y%m%d_%H%M/")
+DEBUG_DIR = datetime.now().strftime("debug/%H%M_%d%m%Y/")
 os.system("mkdir debug 2>/dev/null")
 os.system(f"mkdir {DEBUG_DIR}")
 
@@ -54,7 +54,7 @@ def print_program_output(p):
             if not line:
                 break
             print(line)
-            history += line
+            history += line + "\n"
         except EOFError:
             print(line)
             history += line
