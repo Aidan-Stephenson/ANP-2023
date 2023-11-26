@@ -17,3 +17,6 @@ build
 
 # VSCode
 *.code-workspace
+
+# Project specific
+debug/
