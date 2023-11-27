@@ -45,7 +45,7 @@ static int (*_close)(int sockfd) = NULL;
 static bool fd_array[MAX_FILE_DESCRIPTORS] = {false};
 static struct anp_socket_t *socket_array[MAX_FILE_DESCRIPTORS] = {NULL};
 // Initialise TCP_SESSIONS to NULL by accessing the one in tcp.h
-struct tcp_ses *TCP_SESSIONS = NULL;
+struct tcp_session *TCP_SESSIONS = NULL;
 
 int anp_fd_alloc(){
     for(int i = 0; i < MAX_FILE_DESCRIPTORS; i++){
@@ -67,7 +67,7 @@ int anp_fd_free(int fd){
     if(fd < 0 || fd >= MAX_FILE_DESCRIPTORS){
         return -1;
     }
-    free(socket_array[fd]); // bye bye socket
+    // free(socket_array[fd]); // bye bye socket
     fd_array[fd] = false;
     return 0;
 }
@@ -160,18 +160,13 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
 
         // Send sync
-        struct tcp_hdr *syc_packet = malloc(sizeof(struct tcp_hdr));
-        // syc_packet->src_port = htons(src_port); // TODO: allocate port
+        struct tcp_hdr *syc_packet = init_tcp_packet();
         syc_packet->dst_port = socket->dst_port;
-        syc_packet->seq_num = htonl(0); //TODO: Randomize
-        syc_packet->ack_num = htonl(0);  //TODO: same as above
         syc_packet->flags = SYN;
-        syc_packet->window_size = htons(1600); // Honestly don't know  //LUKA: SYN packet has no payload, so window size is put as 1, referred to as a ghost Byte 
-        syc_packet->urgent_ptr = htons(0); // We don't use it
         debug_TCP("connect:", syc_packet);
 
-        struct tcp_ses* tcp_ses = malloc(sizeof(tcp_ses));
-        // tcp_ses->src_port // TODO: allocate port
+        struct tcp_session *tcp_ses = (struct tcp_session *)malloc(TCP_SESSION_LEN);
+        tcp_ses->src_port = syc_packet->src_port;
         tcp_ses->dst_port = socket->dst_port;
         tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
         tcp_ses->state = TCP_SYN_SENT;
@@ -182,6 +177,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         }
         else
         {
+            // Append to start of list
             tcp_ses->next = TCP_SESSIONS;
             TCP_SESSIONS = tcp_ses;
         }

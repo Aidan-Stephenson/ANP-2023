@@ -15,11 +15,20 @@ os.system("mkdir debug 2>/dev/null")
 os.system(f"mkdir {DEBUG_DIR}")
 
 def build():
-    os.system("cmake .")
-    os.system("make -j")
-    os.system("make install")
+    if os.system("cmake .") != 0: exit()
+    if os.system("make -j") != 0: exit()
+    if os.system("make install") != 0: exit()
+    print("built")
 
 def run(args):
+    # We have to break in main first to load the libraries
+    gdb_arguments = """
+    b *main
+    c
+    b *ip_output
+    c
+    """
+    gdb_arguments = "c"
     if args.run == "tcp":
         subprocess.call(["/bin/bash", "sh-setup-arpserver.sh"], cwd="./bin")    # Setup network stack
         subprocess.Popen(["./anp_server"], cwd="./build", stdout=subprocess.DEVNULL)
@@ -36,7 +45,7 @@ def run(args):
             print_program_output(p)
             p.wait()
         else:
-            p = gdb.debug(["./build/anp_client", "-a", "10.110.0.5", "-w"], gdbscript='c\n', env=custom_env)
+            p = gdb.debug(["./build/anp_client", "-a", "10.110.0.5", "-w"], gdbscript=gdb_arguments, env=custom_env)
             if not args.no_wireshark:
                 with open(f"{DEBUG_DIR}/capture.pcap", "w") as pcap:
                     subprocess.Popen(["tcpdump", "-U", "-i", "tap0", "-w", "-"], stdout=pcap)

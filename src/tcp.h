@@ -87,17 +87,17 @@ void tcp_rx(struct subuff *sub);
 
 // TODO: refactor/add payload, cause won't work for recv/send()
 // TODO: We also need to update it with seq/ack (and add retrans if a packet is not acked)
-struct tcp_ses {
+struct tcp_session {
     uint16_t src_port;
     uint16_t dst_port;
     uint32_t daddr;
     int state;
     //next pointer
-    struct tcp_ses* next;
+    struct tcp_session* next;
 };
 
-// Add global struct array with tcp_ses
-extern struct tcp_ses* TCP_SESSIONS;
+// Add global struct array with tcp_session
+extern struct tcp_session* TCP_SESSIONS;
 
 static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 {
@@ -108,7 +108,10 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 
+extern struct tcp_hdr* init_tcp_packet();
+
 #define TCP_HDR_LEN sizeof(struct tcp_hdr)
+#define TCP_SESSION_LEN sizeof(struct tcp_session)
 #endif //ANPNETSTACK_TCP_H
 
 
@@ -118,7 +121,7 @@ extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 
 #define debug_TCP(str, hdr)                                               \
     do {                                                                \
-        printf("tcp %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu"          \
+        printf("tcp %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu, "          \
                     "checksum: %.4hx)\n",         \
                     str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->csum);                         \
     } while (0)
