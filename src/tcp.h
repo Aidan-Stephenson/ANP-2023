@@ -70,6 +70,7 @@ struct tcp_hdr {
     uint16_t urgent_ptr; // We don't support this, but its part of the header
 } __attribute__((packed));
 
+#include "subuff.h" // Custom, to avoid warnings
 void tcp_rx(struct subuff *sub);
 
 /* This segment is not part of the given framework and most likely to contain bugs */
@@ -118,11 +119,14 @@ extern struct tcp_hdr* init_tcp_packet();
 
 #define TCP_DEBUG
 #ifdef TCP_DEBUG
+#define debug_TCP(str) \
+    do { \
+        printf("TCP_DEBUG %s\n", str);\
+    } while(0)
 
-#define debug_TCP(str, hdr)                                               \
+#define debug_TCP_packet(str, hdr)                                               \
     do {                                                                \
-        printf("tcp %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu, "          \
-                    "checksum: %.4hx)\n",         \
+        printf("TCP_PACKET %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu, checksum: %.4hx)\n",         \
                     str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->csum);                         \
     } while (0)
 

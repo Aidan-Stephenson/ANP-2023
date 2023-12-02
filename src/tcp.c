@@ -26,8 +26,10 @@
 
 
 // Function to return tcp_session from tcp_session_list
+// TODO: refactor to use the following:
+// local-IP, local-port, remote-IP, remote-port, protocol (can be skipped)
+// TODO: refactor sessions to keep track of payloads
 struct tcp_session *get_tcp_session(uint16_t dst_port) {
-    struct list_head *item;
     struct tcp_session *tcp_ses = TCP_SESSIONS;
     while (tcp_ses != NULL) {
         if (tcp_ses->dst_port == dst_port) {
@@ -50,7 +52,7 @@ struct tcp_hdr* init_tcp_packet() {
     // TODO: allocate port
     // packet->src_port = htons(src_port);
 
-    
+    // TODO: look into
     packet->window_size = htons(1600); // Honestly don't know
     packet->urgent_ptr = htons(0); // We don't use it
 
@@ -61,11 +63,11 @@ struct tcp_hdr* init_tcp_packet() {
 void tcp_rx(struct subuff *sub){
     struct tcp_hdr *tcp_hdr = tcp_header(sub);
 
-    debug_TCP("Received tcp_rx packet:", tcp_hdr);
+    debug_TCP_packet("Received tcp_rx packet:", tcp_hdr);
 
     if (tcp_hdr->flags & FIN) {
         // TODO: FIN flag
-        printf("FIN flag is set\n");
+        debug_TCP("FIN flag is set\n");
     }
     if (tcp_hdr->flags & SYN && !(tcp_hdr->flags & ACK)) {
         // struct tcp_hdr syn_ack_packet;
@@ -87,49 +89,48 @@ void tcp_rx(struct subuff *sub){
         // tcp_session->state = TCP_SYN_RECEIVED;
         // // TODO: send ACK
 
-        printf("SYN flag is set\n");
+        debug_TCP("SYN flag is set\n");
     }
     if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {
-        printf("SYNACK flag is set\n");
+        debug_TCP("SYNACK flag is set\n");
         
         struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->src_port);
         if (tcp_session == NULL) {
-            printf("Cannot find tcp session for SYN-ACK \n");
+            debug_TCP("Cannot find tcp session for SYN-ACK \n");
             return;
         }
         tcp_session->state = TCP_ESTABLISHED;
-        // TODO: Packet conversion is not correct (seq, ack and port numbers aren't correctly copied over)
-        debug_TCP("origional", tcp_hdr);
+        
         struct tcp_hdr *ack_packet = init_tcp_packet();
-        ack_packet->dst_port = htons(tcp_session->dst_port);
+        ack_packet->dst_port = tcp_hdr->src_port;
         ack_packet->flags = ACK;
         ack_packet->seq_num = tcp_hdr->ack_num;
-        ack_packet->ack_num = tcp_hdr->ack_num + 1;
-        debug_TCP("ack_packet", ack_packet);
+        ack_packet->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
 
-        int ret = send_tcp(ack_packet, tcp_session->daddr);
-        printf("SENT SYNACK! to %d and %d : %d\n",tcp_session->daddr, tcp_session->dst_port, ret);
+        tcp_tx(ack_packet, tcp_session->daddr);
         return;
     }
     if (tcp_hdr->flags & RST) {
-        printf("RST flag is set\n");
+        debug_TCP("RST flag is set\n");
 
         // If its a RST then we need to flag the socket as disconnected
         struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->src_port);
         if (tcp_session == NULL) {
-            printf("tcp_session is NULL\n");
+            debug_TCP("Cannot find tcp session for RST\n");
             return;
         }
         tcp_session->state = TCP_CLOSED;
+
+        // TODO: cleanup session?
     }
     if (tcp_hdr->flags & PSH) {
         // TODO: Behavior for PSH flag
-        printf("PSH flag is set\n");
+        debug_TCP("PSH flag is set\n");
     }
 
     if (tcp_hdr->flags & URG) {
         // TODO: Behavior for URG flag
-        printf("URG flag is set\n");
+        debug_TCP("URG flag is set\n");
     }
 
     free_sub(sub);
@@ -141,7 +142,7 @@ void tcp_rx(struct subuff *sub){
 // TODO: is not indiponent
 // int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
 int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
-    printf("Called tcp_tx!\n");
+    debug_TCP("Entering tcp_tx!");
     
     struct subuff *sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
     if (sub == NULL) {
@@ -155,10 +156,12 @@ int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
     // Create a new tcp header
     struct tcp_hdr *tcp_hdr_sub = tcp_header(sub);
     if (tcp_hdr_sub == NULL) {
-        // free_sub(sub);
+        free_sub(sub);
+        debug_TCP("Exiting tcp_tx: failed to create tcp header");
         return -ENOMEM;
     }
-    debug_TCP("packet:", tcp_hdr_origional);
+
+    debug_TCP_packet("packet:", tcp_hdr_origional);
 
     tcp_hdr_origional->data_offset = sizeof(struct tcp_hdr) / 4;
     memcpy(tcp_hdr_sub, tcp_hdr_origional, sizeof(struct tcp_hdr));
@@ -168,6 +171,8 @@ int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
     // Get the source ip by using route_lookup and then get the dev from the rtentry
     struct rtentry *rt = route_lookup(dst_ip);
     if (rt == NULL) {
+        debug_TCP("Exiting tcp_tx: failed to find route to host");
+        // TODO: use proper error code
         return -1;
     }
     uint32_t sourceip = rt->dev->addr;
@@ -176,25 +181,24 @@ int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
 
     // TODO: Bug? 127.0.0.1 results in infinite ARP loop    
     int res = ip_output(htonl(dst_ip), sub);
-    // This doesn't work, sub is permanently modified, need to copy it
     while (res == -EAGAIN){
         // wait for a bit and try again
         // TODO: avoid recursion (can't simply recall ip_output as it modifies the sub struct)
-        sleep(1);   // TODO: avoid sleep
+        // TODO: avoid sleep -> use timer object
+        sleep(1);
         res = tcp_tx(tcp_hdr_origional, dst_ip);
     }
 
-    printf("Freeing struct @ %p\n", sub);
-    printf("Freeing sub head at %p\n", sub->head);
-
     // Invalid pointer
     free_sub(sub);
+    
+    debug_TCP("Exiting tcp_tx: Packet sent");
     
     return res;
 }
 
 // Debug wrapper
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
-    printf("Called send_tcp!\n");
+    debug_TCP("Called send_tcp!\n");
     return tcp_tx(tcp_hdr, dst_ip);
 }

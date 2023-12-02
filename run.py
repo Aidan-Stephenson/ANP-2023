@@ -22,13 +22,18 @@ def build():
 
 def run(args):
     # We have to break in main first to load the libraries
-    gdb_arguments = """
+    gdb_custom_arguments = """
     b *main
     c
     b *ip_output
     c
     """
-    gdb_arguments = "c"
+    gdb_default_arguments = """c
+    python import time
+    python time.sleep(1)
+    q
+    """
+    gdb_arguments = gdb_default_arguments   # Note: switch if applicable
     if args.run == "tcp":
         subprocess.call(["/bin/bash", "sh-setup-arpserver.sh"], cwd="./bin")    # Setup network stack
         subprocess.Popen(["./anp_server"], cwd="./build", stdout=subprocess.DEVNULL)

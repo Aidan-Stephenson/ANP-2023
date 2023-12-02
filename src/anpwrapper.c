@@ -160,20 +160,20 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
 
         // Send sync
-        struct tcp_hdr *syc_packet = init_tcp_packet();
-        syc_packet->dst_port = socket->dst_port;
-        syc_packet->flags = SYN;
-        debug_TCP("connect:", syc_packet);
+        struct tcp_hdr *syn_packet = init_tcp_packet();
+        syn_packet->dst_port = socket->dst_port;
+        syn_packet->flags = SYN;
+        debug_TCP_packet("connect:", syn_packet);
 
         struct tcp_session *tcp_ses = (struct tcp_session *)malloc(TCP_SESSION_LEN);
-        tcp_ses->src_port = syc_packet->src_port;
+        tcp_ses->src_port = syn_packet->src_port;
         tcp_ses->dst_port = socket->dst_port;
         tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
         tcp_ses->state = TCP_SYN_SENT;
         if (TCP_SESSIONS == NULL)
         {
             TCP_SESSIONS = tcp_ses;
-            printf("TCP_SESSIONS is NO LONGER NULL\n");
+            debug_TCP("Created TCP session");
         }
         else
         {
@@ -182,8 +182,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             TCP_SESSIONS = tcp_ses;
         }
 
-        int res = send_tcp(syc_packet, socket->dst_ip);
-        free(syc_packet);
+        // TODO: error catching
+        ret = send_tcp(syn_packet, socket->dst_ip);
+        free(syn_packet);
 
         // Poll using the timer.c functions to see if we have received a SYNACK
         //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
@@ -192,20 +193,16 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         while(tcp_ses->state != TCP_ESTABLISHED){
             if(timer_get_tick() - starting_time > timeout){
                 printf("Connection timed out\n");
+                // TODO: return proper error code
                 return -1;
             }
-            else
-            {
-                /* check if SYN_ACK packet recieved */
-            }
-            
         }
 
         // Print the connection status
         if (ret == 0) {
-            printf("Connection successful\n");
+            debug_TCP("Connection successful");
         } else {
-            printf("Connection failed\n");
+            debug_TCP("Connection failed");
         }
 
         return ret;
