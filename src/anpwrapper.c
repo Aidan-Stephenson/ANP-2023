@@ -164,39 +164,18 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         syn_packet->flags = SYN;
         debug_TCP_packet("connect:", syn_packet);
 
-        struct tcp_session *tcp_ses = (struct tcp_session *)malloc(TCP_SESSION_LEN);
-        tcp_ses->src_port = syn_packet->src_port;
-        tcp_ses->dst_port = socket->dst_port;
-        tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
-        tcp_ses->seq_num = syn_packet->seq_num;
-        tcp_ses->ack_num = syn_packet->ack_num;
-
-        tcp_ses->state = TCP_SYN_SENT;
-        if (TCP_SESSIONS == NULL)
-        {
-            TCP_SESSIONS = tcp_ses;
-            debug_TCP("Created TCP session");
-        }
-        else
-        {
-            // Append to start of list
-            tcp_ses->next = TCP_SESSIONS;
-            TCP_SESSIONS = tcp_ses;
-        }
-
         // TODO: error catching
-        ret = send_tcp(syn_packet, socket->dst_ip);
         ret = send_tcp(syn_packet, socket->dst_ip);
 
         // Poll using the timer.c functions to see if we have received a SYNACK
         //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT // Ok boomer
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
         int timeout = 10000; // 10 second timeout
+        struct tcp_session *tcp_ses = get_tcp_session(syn_packet->src_port, syn_packet->dst_port, ntohl(dest_addr->sin_addr.s_addr));
         while(tcp_ses->state != TCP_ESTABLISHED){
             // TODO: retransmit
             if(timer_get_tick() - starting_time > timeout){
                 printf("Connection timed out\n");
-                // TODO: return proper error code
                 tcp_ses->state = TCP_CLOSED;
                 // TODO: remove session
                 free(syn_packet);
@@ -211,9 +190,12 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             debug_TCP("Connection successful");
         } else {
             debug_TCP("Connection failed");
+            sleep(1);
         }
+        
+        printf("Exited with 0x%x\n", ret);
 
-        return ret;
+        return 0;
     }
     // the default path
     return _connect(sockfd, addr, addrlen);

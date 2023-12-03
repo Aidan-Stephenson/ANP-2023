@@ -18,7 +18,8 @@ def build():
     if os.system("cmake .") != 0: exit()
     if os.system("make -j") != 0: exit()
     if os.system("make install") != 0: exit()
-    print("built")
+    
+    print(colored("built", "blue"))
 
 def run(args):
     # We have to break in main first to load the libraries

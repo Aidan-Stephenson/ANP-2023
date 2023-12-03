@@ -22,14 +22,19 @@ Good effort! Unfortunately, the solution does not seem to run to completion succ
 #### Processing
 1) We need to look into a way of dynamically allocating the window size
 2) Done
-3) Need to refactor to use linkedlist implementation
-4) Need to define src port
+3) Need to refactor to use linkedlist implementation -> do we? do we really? Its a bigger pain to work with.
+4) Done
 5) Done
 6) Done
 7) Need to define sequence number (why store ack numbers?)
 8) Done?
-9) We don't need to handle incomming SYN packets
-10) Check tcp session state
+9) Done
+10) Done
 11) Refactor using timers instead of while loops in tcp_tx
 12) Improve error handling, retransmit if not ack'ed
-13) On timeout, session should be closed.
+13) Done
+
+##### TODO:
+1) refactor using linked list   -> Skipped
+2) update linked list to include old packets
+3) add timers

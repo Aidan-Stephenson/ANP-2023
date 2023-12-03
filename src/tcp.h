@@ -77,6 +77,7 @@ void tcp_rx(struct subuff *sub);
 #include "ethernet.h"
 #include "ip.h"
 #include "utilities.h"
+#include "linklist.h"
 
 #define FIN 0x01
 #define SYN 0x02
@@ -89,8 +90,7 @@ void tcp_rx(struct subuff *sub);
 
 #define SYNACK 0x12
 
-// TODO: refactor/add payload, cause won't work for recv/send()
-// TODO: We also need to update it with seq/ack (and add retrans if a packet is not acked)
+// TODO: refactor/add payload, cause won't work for recv/send() -> add packet linked list and send/recv buffers
 struct tcp_session {
     uint16_t src_port;
     uint16_t dst_port;
@@ -101,6 +101,19 @@ struct tcp_session {
 
     // next pointer
     struct tcp_session* next;
+    struct tcp_session* prev;
+
+    // Packet linked list pointer
+    struct tcp_pkt* packets;
+};
+
+struct tcp_pkt {
+    struct tcp_hdr* hdr;
+    // TODO: payload
+    // TODO: timer
+
+    struct tcp_pkt* next;
+    struct tcp_pkt* prev;
 };
 
 // Add global struct array with tcp_session
@@ -116,6 +129,8 @@ int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 
 extern struct tcp_hdr* init_tcp_packet();
+
+extern struct tcp_session *get_tcp_session(uint16_t local_port, uint16_t remote_port, uint32_t daddr);
 
 #define TCP_HDR_LEN sizeof(struct tcp_hdr)
 #define TCP_SESSION_LEN sizeof(struct tcp_session)
