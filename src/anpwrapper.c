@@ -113,7 +113,6 @@ static int is_socket_supported(int domain, int type, int protocol)
  * @return The file descriptor of the created socket, or -1 if an error occurred.
  */
 int socket(int domain, int type, int protocol) {
-    int ret = 0;
     if (is_socket_supported(domain, type, protocol)) {
         // Lets start by allocating a file descriptor
         int fd = anp_fd_alloc();
@@ -169,6 +168,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         tcp_ses->src_port = syn_packet->src_port;
         tcp_ses->dst_port = socket->dst_port;
         tcp_ses->daddr = dest_addr->sin_addr.s_addr; 
+        tcp_ses->seq_num = syn_packet->seq_num;
+        tcp_ses->ack_num = syn_packet->ack_num;
+
         tcp_ses->state = TCP_SYN_SENT;
         if (TCP_SESSIONS == NULL)
         {
@@ -184,19 +186,25 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
         // TODO: error catching
         ret = send_tcp(syn_packet, socket->dst_ip);
-        free(syn_packet);
+        ret = send_tcp(syn_packet, socket->dst_ip);
 
         // Poll using the timer.c functions to see if we have received a SYNACK
-        //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT
+        //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT // Ok boomer
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
         int timeout = 10000; // 10 second timeout
         while(tcp_ses->state != TCP_ESTABLISHED){
+            // TODO: retransmit
             if(timer_get_tick() - starting_time > timeout){
                 printf("Connection timed out\n");
                 // TODO: return proper error code
-                return -1;
+                tcp_ses->state = TCP_CLOSED;
+                // TODO: remove session
+                free(syn_packet);
+                return -ETIMEDOUT;
             }
         }
+        free(syn_packet);
+
 
         // Print the connection status
         if (ret == 0) {

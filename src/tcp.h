@@ -51,7 +51,7 @@ enum tcp_states {
                       termination request. */
 };
 
-//https://rsjakob.gitbooks.io/iqt-network-programming/osi-layer-4/tcp-header.html
+// https://rsjakob.gitbooks.io/iqt-network-programming/osi-layer-4/tcp-header.html
 // FIXME: define a TCP header format
 
 struct tcp_hdr {
@@ -83,8 +83,11 @@ void tcp_rx(struct subuff *sub);
 #define RST 0x04
 #define PSH 0x08
 #define ACK 0x10
-#define SYNACK 0x12
 #define URG 0x20
+#define ECE 0x40
+#define CWR 0x80
+
+#define SYNACK 0x12
 
 // TODO: refactor/add payload, cause won't work for recv/send()
 // TODO: We also need to update it with seq/ack (and add retrans if a packet is not acked)
@@ -93,7 +96,10 @@ struct tcp_session {
     uint16_t dst_port;
     uint32_t daddr;
     int state;
-    //next pointer
+    uint32_t seq_num;
+    uint32_t ack_num;
+
+    // next pointer
     struct tcp_session* next;
 };
 
@@ -126,8 +132,8 @@ extern struct tcp_hdr* init_tcp_packet();
 
 #define debug_TCP_packet(str, hdr)                                               \
     do {                                                                \
-        printf("TCP_PACKET %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu, checksum: %.4hx)\n",         \
-                    str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->csum);                         \
+        printf("TCP_PACKET %s (src_port: %hu, dst_port: %hu, seq_num: %hu, ack_num: %hu, flags: 0x%x, checksum: %.4hx)\n",         \
+                    str, hdr->src_port, hdr->dst_port, hdr->seq_num, hdr->ack_num, hdr->flags, hdr->csum);                         \
     } while (0)
 
 #endif // TCP_DEBUG

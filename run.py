@@ -29,9 +29,6 @@ def run(args):
     c
     """
     gdb_default_arguments = """c
-    python import time
-    python time.sleep(1)
-    q
     """
     gdb_arguments = gdb_default_arguments   # Note: switch if applicable
     if args.run == "tcp":
@@ -59,6 +56,8 @@ def run(args):
             print_program_output(p)
             p.wait()
 
+    os.system("killall anp_server") # Cleanup, bit hacky but it works.
+
 
 def print_program_output(p):
     history = ""
@@ -66,7 +65,7 @@ def print_program_output(p):
         try:
             line = p.recvline().decode().strip()
             if not line:
-                break
+                pass
             print(line)
             history += line + "\n"
         except EOFError:

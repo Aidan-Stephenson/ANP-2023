@@ -36,7 +36,7 @@
 #define ARP_WAITING     1
 #define ARP_RESOLVED    2
 
-#define ARP_DEBUG
+// #define ARP_DEBUG
 #ifdef ARP_DEBUG
 #define debug_arp(str, hdr)                                               \
     do {                                                                \

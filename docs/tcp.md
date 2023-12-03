@@ -19,6 +19,8 @@ SYN packet. If the packet is ack'ed all is well, if not we time out and return `
 In short, takes a socket, buffer, size and flags, sends the buffer.
 
 For more information on the exact behavior: https://linux.die.net/man/3/send
+
+For this, we probably want to hang until the packet is ack'ed. If it times out then it times out.
 #### recv
 This does the reverse of send, it takes a buffer, socket and size and returns whatever has been
 received. 
@@ -36,7 +38,15 @@ tcp.c we define the following two interfaces:
 #### tcp_rx
 This function is called from `ip_rx`, it takes a TCP packet and processes a response (if any). These responses are:
 - SYN -> Return SYN-ACK
-TODO: are there more? What are the CWR and ECE flags?
+- CWR
+- ECE
+- ECE & SYN
+- URG
+- ACK
+- SYN & ACK
+- PSH -> We don't have to implement this (https://canvas.vu.nl/courses/71468/discussion_topics/708533)
+- RST
+- FIN
 
 Currently the only response implemented is `SYN ACK`.
 

@@ -28,7 +28,7 @@
 #define IPP_NUM_IP_in_IP   0x04 // we are doing IP in IP tunning
 #define IPP_TCP    0x06
 
-#define DEBUG_IP
+// #define DEBUG_IP
 #ifdef DEBUG_IP
 #define debug_ip_hdr(msg, hdr)                                                \
     do {                                                                \

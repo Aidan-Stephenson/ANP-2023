@@ -26,77 +26,55 @@
 
 
 // Function to return tcp_session from tcp_session_list
-// TODO: refactor to use the following:
-// local-IP, local-port, remote-IP, remote-port, protocol (can be skipped)
-// TODO: refactor sessions to keep track of payloads
-struct tcp_session *get_tcp_session(uint16_t dst_port) {
+// TODO: refactor sessions to keep track of payloads/packets
+struct tcp_session *get_tcp_session(uint16_t local_port, uint16_t remote_port, uint32_t daddr) {
     struct tcp_session *tcp_ses = TCP_SESSIONS;
     while (tcp_ses != NULL) {
-        if (tcp_ses->dst_port == dst_port) {
+        if (tcp_ses->src_port == local_port 
+        // && tcp_ses->dst_port == remote_port 
+        // && tcp_ses->daddr == daddr
+        ) {
             return tcp_ses;
         }
         tcp_ses = tcp_ses->next;
     }
     
     return NULL;
-
 }
 
 
 struct tcp_hdr* init_tcp_packet() {
     struct tcp_hdr *packet = (struct tcp_hdr *)calloc(sizeof(struct tcp_hdr), 1);
     // TODO: Randomize
+    // packet->seq_num = rand();
     packet->seq_num = htonl(0);
     packet->ack_num = htonl(0);
 
     // TODO: allocate port
+    // https://canvas.vu.nl/courses/71468/discussion_topics/704951
     // packet->src_port = htons(src_port);
 
     // TODO: look into
-    packet->window_size = htons(1600); // Honestly don't know
-    packet->urgent_ptr = htons(0); // We don't use it
+    packet->window_size = htons(1600); // Honestly don't know. THink we want to allocate it dynamically
+    packet->urgent_ptr = htons(0); // We don't use it, might be worth looking into
 
     return packet;
 }
 
 
+// TODO: check TCP session state -> flags only make sense in certain contexts
+// TODO: refactor if tree to el/if -> flag combinations
 void tcp_rx(struct subuff *sub){
     struct tcp_hdr *tcp_hdr = tcp_header(sub);
 
     debug_TCP_packet("Received tcp_rx packet:", tcp_hdr);
 
-    if (tcp_hdr->flags & FIN) {
-        // TODO: FIN flag
-        debug_TCP("FIN flag is set\n");
-    }
-    if (tcp_hdr->flags & SYN && !(tcp_hdr->flags & ACK)) {
-        // struct tcp_hdr syn_ack_packet;
-        // //syn_ack_packet.src_port = htons(src_port); // TODO: allocate port
-        // syn_ack_packet.dst_port = htons(tcp_hdr->src_port); //TODO: FIND PORT
-        // syn_ack_packet.seq_num = htonl(0);  //TODO: server's initial sequence number should be randomly generated
-        // syn_ack_packet.ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);  //CAUTION!! conversion might be wrong //it should be seq_num from syn packet + 1
-        // syn_ack_packet.flags = SYNACK; //SYNACK flag is defined as SYN+ACK
-        // syn_ack_packet.window_size = htons(1600);
-        // syn_ack_packet.urgent_ptr = htons(0); // We don't use it
-
-        // struct tcp_ses *tcp_session = get_tcp_session(tcp_hdr->src_port);
-        // if (tcp_session == NULL) {
-        //     // TODO: Create session
-        //     printf("Cannot find tcp session for SYN\n");
-        //     return;
-        // }
-        // // Set the tcp session state to TCP_SYN_RCVD
-        // tcp_session->state = TCP_SYN_RECEIVED;
-        // // TODO: send ACK
-
-        debug_TCP("SYN flag is set\n");
-    }
     if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {
-        debug_TCP("SYNACK flag is set\n");
+        debug_TCP("SYNACK flag is set");
         
-        struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->src_port);
+        struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->dst_port, tcp_hdr->src_port, IP_HDR_FROM_SUB(sub)->saddr);
         if (tcp_session == NULL) {
-            debug_TCP("Cannot find tcp session for SYN-ACK \n");
+            debug_TCP("Cannot find tcp session for SYN-ACK");
             return;
         }
         tcp_session->state = TCP_ESTABLISHED;
@@ -108,29 +86,64 @@ void tcp_rx(struct subuff *sub){
         ack_packet->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
 
         tcp_tx(ack_packet, tcp_session->daddr);
+
         return;
+    } 
+    
+    if (tcp_hdr->flags & SYN && tcp_hdr->flags & ECE) {
+        debug_TCP("SYN ECE flag set");
+        // TODO: ECESYN flag
     }
+    
+    if (tcp_hdr->flags & ECE) {
+        debug_TCP("ECE flag set");
+        // TODO: ECE flag
+    }
+    
+    if (tcp_hdr->flags & CWR) {
+        debug_TCP("CWR flag set");
+        // TODO: CWR flag
+    }
+    
+    if (tcp_hdr->flags & FIN) {
+        // TODO: FIN flag
+        debug_TCP("FIN flag is set");
+    }
+    
+    if (tcp_hdr->flags & SYN) {
+        // Implementation not needed:
+        // 9) tcp.c:52 Client should not have to handle the case that a SYN message comes in. 
+        debug_TCP("SYN flag is set");
+    }
+    
     if (tcp_hdr->flags & RST) {
-        debug_TCP("RST flag is set\n");
+        debug_TCP("RST flag is set");
 
         // If its a RST then we need to flag the socket as disconnected
-        struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->src_port);
+        struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->dst_port, tcp_hdr->src_port, IP_HDR_FROM_SUB(sub)->saddr);
         if (tcp_session == NULL) {
-            debug_TCP("Cannot find tcp session for RST\n");
+            debug_TCP("Cannot find tcp session for RST");
             return;
         }
         tcp_session->state = TCP_CLOSED;
 
         // TODO: cleanup session?
-    }
+    } 
+    
     if (tcp_hdr->flags & PSH) {
         // TODO: Behavior for PSH flag
-        debug_TCP("PSH flag is set\n");
-    }
-
-    if (tcp_hdr->flags & URG) {
+        // Implementation is not needed: https://canvas.vu.nl/courses/71468/discussion_topics/708533
+        debug_TCP("PSH flag is set");
+    } 
+    
+    if (tcp_hdr->flags & ACK) {
+        // TODO: Behavior for ACK flag
+        debug_TCP("ACK flag is set");
+    } else if (tcp_hdr->flags & URG) {
         // TODO: Behavior for URG flag
-        debug_TCP("URG flag is set\n");
+        debug_TCP("URG flag is set");
+    } else {
+        debug_TCP("UNKNOWN FLAG");
     }
 
     free_sub(sub);
@@ -197,8 +210,8 @@ int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
     return res;
 }
 
-// Debug wrapper
+// TODO: enforce protocol spec (don't send SYN when its already estabished, etc)
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
-    debug_TCP("Called send_tcp!\n");
+    debug_TCP("Called send_tcp!");
     return tcp_tx(tcp_hdr, dst_ip);
 }
