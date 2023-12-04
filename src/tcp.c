@@ -26,7 +26,6 @@
 
 
 // Function to return tcp_session from tcp_session_list
-// TODO: refactor sessions to keep track of payloads/packets -> new linked list of all unack'ed packets
 struct tcp_session *get_tcp_session(uint16_t local_port, uint16_t remote_port, uint32_t daddr) {
     struct tcp_session *tcp_ses = TCP_SESSIONS;
     while (tcp_ses != NULL) {
@@ -40,6 +39,36 @@ struct tcp_session *get_tcp_session(uint16_t local_port, uint16_t remote_port, u
     }
     printf("Couldn't find tcp session!\n");
     return NULL;
+}
+
+struct tcp_pkt *get_tcp_packet(struct tcp_session *tcp_ses, uint32_t ack_num) {
+    ack_num = htonl(ntohl(ack_num) - 1);
+    struct tcp_pkt *tcp_packet = tcp_ses->packets;
+    while (tcp_packet != NULL) {
+        printf("%d %d\n", tcp_packet->hdr->seq_num, ack_num);
+        if (tcp_packet->hdr->seq_num == ack_num) {
+            return tcp_packet;
+        }
+        tcp_packet = tcp_packet->next;
+    }
+
+    return NULL;
+}
+
+void free_packet(struct tcp_pkt *tcp_packet) {
+     if (tcp_packet != NULL) {
+        debug_TCP("Packet acked, stopping retrans");
+        timer_cancel(tcp_packet->timer);
+        if (tcp_packet->next != NULL) {
+            tcp_packet->next->prev = tcp_packet->prev;
+        }
+        if (tcp_packet->prev != NULL) {
+            tcp_packet->prev->next = tcp_packet->next;
+        }
+        free(tcp_packet);
+    } else {
+        debug_TCP("Couldn't find packet");
+    }
 }
 
 
@@ -78,7 +107,7 @@ void tcp_rx(struct subuff *sub){
     struct tcp_hdr *tcp_hdr = tcp_header(sub);
     struct tcp_session *tcp_session = get_tcp_session(tcp_hdr->dst_port, tcp_hdr->src_port, IP_HDR_FROM_SUB(sub)->saddr);
     if (tcp_session == NULL) {
-        debug_TCP("Cannot find tcp session");
+        debug_TCP("Cannot find tcp session in rx");
     }
 
     debug_TCP_packet("Received tcp_rx packet:", tcp_hdr);
@@ -103,37 +132,52 @@ void tcp_rx(struct subuff *sub){
 
                 tcp_session->state = TCP_ESTABLISHED;
                 
-                struct tcp_hdr *ack_packet = init_tcp_packet();
-                ack_packet->dst_port = tcp_hdr->src_port;
-                ack_packet->src_port = tcp_hdr->dst_port;
-                ack_packet->flags = ACK;
-                ack_packet->seq_num = tcp_hdr->ack_num;
-                ack_packet->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
+                struct tcp_hdr *ack_packet_hdr = init_tcp_packet();
+                ack_packet_hdr->dst_port = tcp_hdr->src_port;
+                ack_packet_hdr->src_port = tcp_hdr->dst_port;
+                ack_packet_hdr->flags = ACK;
+                ack_packet_hdr->seq_num = tcp_hdr->ack_num;
+                ack_packet_hdr->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
 
-                tcp_tx(ack_packet, ntohl(IP_HDR_FROM_SUB(sub)->saddr));
+                struct tcp_pkt* ack_packet = (struct tcp_pkt *)calloc(sizeof(struct tcp_pkt), 1);
+                ack_packet->hdr = ack_packet_hdr;
+                ack_packet->daddr = ntohl(IP_HDR_FROM_SUB(sub)->saddr);
+
+                struct tcp_pkt *tcp_packet = get_tcp_packet(tcp_session, tcp_hdr->ack_num);
+                if (tcp_session->packets == tcp_packet) {
+                    tcp_session->packets = tcp_packet->next;
+                }
+                free_packet(tcp_packet);
+                
+                tcp_tx(ack_packet);
+                free(ack_packet_hdr);
                 free(ack_packet);
-
             } else if (tcp_hdr->flags & SYN) { // According to the tcp state machine it is valid to receive a SYN in this state
                 tcp_session->state = TCP_SYN_RECEIVED;
                 
-                struct tcp_hdr *synack_packet = init_tcp_packet();
-                synack_packet->dst_port = tcp_hdr->src_port;
-                synack_packet->src_port = tcp_hdr->dst_port;
-                synack_packet->flags = SYNACK;
-                synack_packet->seq_num = tcp_hdr->ack_num;
-                synack_packet->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
+                struct tcp_hdr *synack_packet_hdr = init_tcp_packet();
+                synack_packet_hdr->dst_port = tcp_hdr->src_port;
+                synack_packet_hdr->src_port = tcp_hdr->dst_port;
+                synack_packet_hdr->flags = SYNACK;
+                synack_packet_hdr->seq_num = tcp_hdr->ack_num;
+                synack_packet_hdr->ack_num = htonl(ntohl(tcp_hdr->seq_num) + 1);
                 
-                // TODO: handle packet ack (stop resending)
+                struct tcp_pkt *tcp_packet = get_tcp_packet(tcp_session, tcp_hdr->ack_num);
+                if (tcp_session->packets == tcp_packet) {
+                    tcp_session->packets = tcp_packet->next;
+                }
+                free_packet(tcp_packet);
 
-                tcp_tx(synack_packet, ntohl(IP_HDR_FROM_SUB(sub)->saddr));
+                struct tcp_pkt* synack_packet = (struct tcp_pkt *)calloc(sizeof(struct tcp_pkt), 1);
+                synack_packet->hdr = synack_packet_hdr;
+                synack_packet->daddr = ntohl(IP_HDR_FROM_SUB(sub)->saddr);
+
+                tcp_tx(synack_packet);
+                free(synack_packet_hdr);
                 free(synack_packet);
             }
             break;
         case TCP_SYN_RECEIVED:
-             if (tcp_hdr->flags & SYN && tcp_hdr->flags & ACK) {
-                tcp_session->state = TCP_SYN_RECEIVED;
-                // TODO: handle packet ack (stop resending)
-             }
             break;
         case TCP_ESTABLISHED:
             // Can receive a FIN
@@ -152,6 +196,10 @@ void tcp_rx(struct subuff *sub){
             break;
         case TCP_TIME_WAIT:
             break;
+        default:
+            // TODO: iterate through the packets of this session, if we have an ack for the incomming packet we resend it. If the ack is later than any acks we already have we nuke them
+            // If not, RST transmission
+            break;
     }
 
     end:
@@ -161,13 +209,13 @@ void tcp_rx(struct subuff *sub){
 }
 
 // TODO: currently doesn't have any support for payloads 
-// TODO: start timer
-// TODO: take a session argument, if null just send, if not null append packet to session
+// TODO: deal with retries
 // int tcp_tx(struct subuff *sub, uint32_t dst_ip, uint16_t dst_port, uint16_t src_port, uint32_t seq_num, uint32_t ack_num, uint8_t flags, uint16_t window_size, uint16_t urgent_ptr, uint8_t *payload, uint16_t payload_len){
-int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
+// This thing needs does one thing and one thing only, send tcp packets, session management is handled
+// externally. The one exception to this is the recurse threshold which is used to kill a timer.
+int tcp_tx(struct tcp_pkt* tcp_packet){
+    struct tcp_hdr* tcp_hdr_origional = tcp_packet->hdr;
     debug_TCP("Entering tcp_tx!");
-    
-    // TODO: get TCP state
 
     struct subuff *sub = alloc_sub(ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN);
     if (sub == NULL) {
@@ -194,24 +242,24 @@ int tcp_tx(struct tcp_hdr* tcp_hdr_origional, uint32_t dst_ip){
     tcp_hdr_sub->csum = 0;
 
     // Get the source ip by using route_lookup and then get the dev from the rtentry
-    struct rtentry *rt = route_lookup(dst_ip);
+    struct rtentry *rt = route_lookup(tcp_packet->daddr);
     if (rt == NULL) {
         debug_TCP("Exiting tcp_tx: failed to find route to host");
         return -EHOSTUNREACH;
     }
     uint32_t sourceip = rt->dev->addr;
 
-    tcp_hdr_sub->csum = do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPP_TCP, ntohl(sourceip), dst_ip);
+    tcp_hdr_sub->csum = do_tcp_csum((uint8_t *)tcp_hdr_sub, sizeof(struct tcp_hdr), IPP_TCP, ntohl(sourceip), tcp_packet->daddr);
 
     // TODO: Bug? 127.0.0.1 results in infinite ARP loop    
-    int res = ip_output(htonl(dst_ip), sub);
+    int res = ip_output(htonl(tcp_packet->daddr), sub);
     while (res == -EAGAIN){
         // wait for a bit and try again
         // TODO: avoid recursion (can't simply recall ip_output as it modifies the sub struct)
         // TODO: avoid sleep -> use timer object
         sleep(1);
         printf("recursing\n");
-        res = tcp_tx(tcp_hdr_origional, dst_ip);
+        res = tcp_tx(tcp_packet);
     }
 
     // Invalid pointer
@@ -240,24 +288,30 @@ extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
             tcp_ses->state = TCP_SYN_SENT;
 
             if (TCP_SESSIONS == NULL) {
+                debug_TCP("Created tcp sessions");
                 tcp_ses->next = TCP_SESSIONS;
                 tcp_ses->prev = TCP_SESSIONS;
                 TCP_SESSIONS = tcp_ses;
             } else {
+                debug_TCP("Appended to sessions");
                 // Append to start of list
                 tcp_ses->next = TCP_SESSIONS;
                 TCP_SESSIONS->prev = tcp_ses;
                 TCP_SESSIONS = tcp_ses;
             }
 
-            return tcp_tx(tcp_hdr, dst_ip);   
-        }
+            struct tcp_pkt* tcp_packet = (struct tcp_pkt *)calloc(sizeof(struct tcp_pkt), 1);
+            tcp_packet->hdr = tcp_hdr;
+            tcp_packet->retries = 0;
+            tcp_packet->daddr = dst_ip;
+            tcp_packet->timer = timer_add(TCP_ACK_TIMEOUT, (void *)tcp_tx, tcp_packet);
+            tcp_ses->packets = tcp_packet;
 
-        return -1;
+            return tcp_tx(tcp_packet);   
+        }
      }
 
     // Source: https://www.researchgate.net/figure/TCP-Finite-State-Machine_fig1_260186294
-    // TODO: Append packet to session list
     // TODO: start timer, add a recursion level, if a threshold is reached tcp_tx will kill it
     switch (tcp_session->state) {
         case TCP_LISTEN:
@@ -265,7 +319,18 @@ extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
             break;
         case TCP_SYN_SENT:
             if (tcp_hdr->flags & SYN) {
-                return tcp_tx(tcp_hdr, dst_ip);   
+                struct tcp_pkt* tcp_packet = (struct tcp_pkt *)calloc(sizeof(struct tcp_pkt), 1);
+                tcp_packet->hdr = tcp_hdr;
+                tcp_packet->retries = 0;
+                tcp_packet->daddr = dst_ip;
+                if (tcp_session->packets != NULL) {
+                    tcp_session->packets->prev = tcp_packet;
+                    tcp_packet->next = tcp_session->packets;
+                }
+                tcp_session->packets = tcp_packet;
+                tcp_packet->timer = timer_add(TCP_ACK_TIMEOUT, (void *)tcp_tx, tcp_packet);
+
+                return tcp_tx(tcp_packet);   
             }
             break;
         case TCP_SYN_RECEIVED:
@@ -288,5 +353,5 @@ extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip){
             break;
     }
 
-    return 0;
+    return -EINVAL;
 }

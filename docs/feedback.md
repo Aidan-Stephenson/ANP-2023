@@ -30,11 +30,14 @@ Good effort! Unfortunately, the solution does not seem to run to completion succ
 8) Done?
 9) Done
 10) Done
-11) Refactor using timers instead of while loops in tcp_tx
-12) Improve error handling, retransmit if not ack'ed
+11) Done
+12) Improve error handling
 13) Done
 
 ##### TODO:
 1) refactor using linked list   -> Skipped
-2) update linked list to include old packets
-3) add timers
+2) update linked list to include old packets -> done
+3) add timers -> done
+4) figure out sequences (do we ack later sequences?)
+5) Add buffers
+6) Add send and recv

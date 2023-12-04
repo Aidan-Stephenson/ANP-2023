@@ -78,6 +78,12 @@ void tcp_rx(struct subuff *sub);
 #include "ip.h"
 #include "utilities.h"
 #include "linklist.h"
+#include "timer.h"
+
+#define TCP_RETRIES1 3 // Amount of times we retry sending a packet before re-arping
+#define TCP_RETRIES2 15 // Amount of times we retry sending before giving up
+// TODO: this should be scaling 3->6->12->give up
+#define TCP_ACK_TIMEOUT 3000 // Time in miliseconds before resending a packet
 
 #define FIN 0x01
 #define SYN 0x02
@@ -96,6 +102,7 @@ struct tcp_session {
     uint16_t dst_port;
     uint32_t daddr;
     int state;
+    // TODO: do we need to store these here? Were storing them in the packets themselves too
     uint32_t seq_num;
     uint32_t ack_num;
 
@@ -109,8 +116,10 @@ struct tcp_session {
 
 struct tcp_pkt {
     struct tcp_hdr* hdr;
+    int retries;
+    struct timer * timer;
+    uint32_t daddr;
     // TODO: payload
-    // TODO: timer
 
     struct tcp_pkt* next;
     struct tcp_pkt* prev;
@@ -124,7 +133,7 @@ static inline struct tcp_hdr *tcp_header(struct subuff *sub)
     return (struct tcp_hdr *)(sub->head + ETH_HDR_LEN + IP_HDR_LEN);
 }
 
-int tcp_tx(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
+int tcp_tx(struct tcp_pkt* tcp_packet);
 
 extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
 

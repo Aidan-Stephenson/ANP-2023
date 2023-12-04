@@ -167,13 +167,10 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         // TODO: error catching
         ret = send_tcp(syn_packet, socket->dst_ip);
 
-        // Poll using the timer.c functions to see if we have received a SYNACK
-        //DONT USE WHILE LOOP PROFESSOR DOESNT LIKE IT // Ok boomer
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
         int timeout = 10000; // 10 second timeout
         struct tcp_session *tcp_ses = get_tcp_session(syn_packet->src_port, syn_packet->dst_port, ntohl(dest_addr->sin_addr.s_addr));
         while(tcp_ses->state != TCP_ESTABLISHED){
-            // TODO: retransmit
             if(timer_get_tick() - starting_time > timeout){
                 printf("Connection timed out\n");
                 tcp_ses->state = TCP_CLOSED;
@@ -183,17 +180,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             }
         }
         free(syn_packet);
-
-
-        // Print the connection status
-        if (ret == 0) {
-            debug_TCP("Connection successful");
-        } else {
-            debug_TCP("Connection failed");
-            sleep(1);
-        }
-        
-        printf("Exited with 0x%x\n", ret);
 
         return 0;
     }
