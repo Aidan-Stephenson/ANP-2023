@@ -51,7 +51,7 @@ This function is called from `ip_rx`, it takes a TCP packet and processes a resp
 Currently the only response implemented is `SYN ACK`.
 
 #### tcp_tx
-This function takes a TCP header, ip address, and *should* take a payload. With this it constructs a TCP packet, allocates a new sub struct,
+This function takes a TCP packet. With this it constructs a TCP packet, allocates a new sub struct,
 calculates the checksum and passes it on to `ip_output`.
 
 Currently, if the ip address is `127.0.0.1` this will result in an infinite ARP loop. This is likely a bug.

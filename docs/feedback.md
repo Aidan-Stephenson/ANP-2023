@@ -38,6 +38,8 @@ Good effort! Unfortunately, the solution does not seem to run to completion succ
 1) refactor using linked list   -> Skipped
 2) update linked list to include old packets -> done
 3) add timers -> done
-4) figure out sequences (do we ack later sequences?)
+4) figure out sequences (do we ack later sequences?) -> for now, yes, we just dont add them to the buffer
 5) Add buffers
 6) Add send and recv
+7) setup scaling retransmission + failure states for tcp socket
+8) figure out window scaling

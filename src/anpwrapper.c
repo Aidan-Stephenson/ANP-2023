@@ -159,27 +159,33 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         printf("[%d] Connecting to %s:%d\n",sockfd, inet_ntoa(dest_addr->sin_addr), ntohs(dest_addr->sin_port));
 
         // Send sync
-        struct tcp_hdr *syn_packet = init_tcp_packet();
-        syn_packet->dst_port = socket->dst_port;
-        syn_packet->flags = SYN;
-        debug_TCP_packet("connect:", syn_packet);
+        struct tcp_pkt *syn_packet = init_tcp_packet();
+        syn_packet->hdr->dst_port = socket->dst_port;
+        syn_packet->hdr->flags = SYN;
+        debug_TCP_packet("connect:", syn_packet->hdr);
 
-        // TODO: error catching
+        // TODO: error handling
         ret = send_tcp(syn_packet, socket->dst_ip);
 
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
         int timeout = 10000; // 10 second timeout
-        struct tcp_session *tcp_ses = get_tcp_session(syn_packet->src_port, syn_packet->dst_port, ntohl(dest_addr->sin_addr.s_addr));
+        struct tcp_session *tcp_ses = get_tcp_session(syn_packet->hdr->src_port, syn_packet->hdr->dst_port, ntohl(dest_addr->sin_addr.s_addr));
+        socket->tcp_session = tcp_ses;
         while(tcp_ses->state != TCP_ESTABLISHED){
             if(timer_get_tick() - starting_time > timeout){
                 printf("Connection timed out\n");
                 tcp_ses->state = TCP_CLOSED;
-                // TODO: remove session
-                free(syn_packet);
+                if (tcp_ses->next != NULL) {
+                    tcp_ses->next->prev = tcp_ses->prev;
+                }
+                if (tcp_ses->prev != NULL) {
+                    tcp_ses->prev->next = tcp_ses->next;
+                }
+                free(tcp_ses);
+                free_packet(syn_packet);
                 return -ETIMEDOUT;
             }
         }
-        free(syn_packet);
 
         return 0;
     }
@@ -192,7 +198,20 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
     int ret = -ENOSYS;
     if(is_anp_sockfd(sockfd)) {
-        //TODO: implement your logic here
+        struct anp_socket_t *socket = socket_array[GET_REAL_FD(sockfd)];
+
+        struct tcp_pkt* tcp_packet = init_tcp_packet();
+        tcp_packet->hdr->dst_port = socket->tcp_session->dst_port;
+        tcp_packet->hdr->src_port = socket->tcp_session->src_port;
+        tcp_packet->size = len;
+        tcp_packet->buf = malloc(len);
+        memcpy(tcp_packet->buf, buf, len);
+        
+        // TODO: error handling
+        // Bug: the tcp session does not seem to be found, likely cause is the dst_ip (as the rest are directly copied from the sockets tcp session), 
+        // alternatively its cleaned up and we have a race condition
+        send_tcp(tcp_packet, socket->dst_ip);
+        sleep(3); // Let tcpdump catch it
         assert(ret == 0);
         return ret;
     }

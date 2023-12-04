@@ -117,9 +117,10 @@ struct tcp_session {
 struct tcp_pkt {
     struct tcp_hdr* hdr;
     int retries;
-    struct timer * timer;
+    struct timer* timer;
     uint32_t daddr;
-    // TODO: payload
+    void* buf;
+    size_t size;
 
     struct tcp_pkt* next;
     struct tcp_pkt* prev;
@@ -135,9 +136,11 @@ static inline struct tcp_hdr *tcp_header(struct subuff *sub)
 
 int tcp_tx(struct tcp_pkt* tcp_packet);
 
-extern int send_tcp(struct tcp_hdr* tcp_hdr, uint32_t dst_ip);
+extern int send_tcp(struct tcp_pkt* tcp_packet, uint32_t dst_ip);
 
-extern struct tcp_hdr* init_tcp_packet();
+extern struct tcp_hdr* init_tcp_hdr();
+extern struct tcp_pkt* init_tcp_packet();
+extern void free_packet(struct tcp_pkt *tcp_packet);
 
 extern struct tcp_session *get_tcp_session(uint16_t local_port, uint16_t remote_port, uint32_t daddr);
 

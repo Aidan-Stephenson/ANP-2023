@@ -35,6 +35,7 @@ struct anp_socket_t {
     int state;
     uint32_t dst_ip;
     uint16_t dst_port;
+    struct tcp_session* tcp_session;
 };
 
 void _function_override_init();
