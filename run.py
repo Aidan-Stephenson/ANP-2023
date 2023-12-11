@@ -36,7 +36,8 @@ def run(args):
         subprocess.call(["/bin/bash", "sh-setup-arpserver.sh"], cwd="./bin")    # Setup network stack
         subprocess.Popen(["./anp_server"], cwd="./build", stdout=subprocess.DEVNULL)
         custom_env = {
-                    'LD_PRELOAD': '/usr/local/lib/libanpnetstack.so'
+                    'LD_PRELOAD': '/usr/local/lib/libanpnetstack.so',
+                    'MALLOC_CHECK_': '2'
                 }
         if args.no_gdb:
             p = process(["./build/anp_client", "-a", "10.110.0.5", "-w"], env=custom_env)

@@ -162,14 +162,26 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         struct tcp_pkt *syn_packet = init_tcp_packet();
         syn_packet->hdr->dst_port = socket->dst_port;
         syn_packet->hdr->flags = SYN;
+        uint16_t src_port = syn_packet->hdr->src_port;         // Race condition, the packet might be ack'ed and freed before we need this again
         debug_TCP_packet("connect:", syn_packet->hdr);
 
         // TODO: error handling
         ret = send_tcp(syn_packet, socket->dst_ip);
 
+        if (ret == -EINVAL) {
+            debug_TCP("Connect(): Invalid TCP packet");
+            return ret;
+        } else if (ret == -EHOSTUNREACH) {
+            debug_TCP("Connect(): Unable to find route to host");
+            return ret;
+        }
+
+
         int starting_time = timer_get_tick(); //gets the current tick from the timers thread thats started by default start up
         int timeout = 10000; // 10 second timeout
-        struct tcp_session *tcp_ses = get_tcp_session(syn_packet->hdr->src_port, syn_packet->hdr->dst_port, ntohl(dest_addr->sin_addr.s_addr));
+        // Race condition, the packet might be ack'ed and freed before we hit this line
+        struct tcp_session *tcp_ses = get_tcp_session(src_port, socket->dst_port, dest_addr->sin_addr.s_addr);
+        assert(tcp_ses != NULL);
         socket->tcp_session = tcp_ses;
         while(tcp_ses->state != TCP_ESTABLISHED){
             if(timer_get_tick() - starting_time > timeout){
@@ -181,8 +193,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
                 if (tcp_ses->prev != NULL) {
                     tcp_ses->prev->next = tcp_ses->next;
                 }
-                free(tcp_ses);
-                free_packet(syn_packet);
+                // free(tcp_ses);
+                // free_packet(syn_packet);
                 return -ETIMEDOUT;
             }
         }
@@ -196,23 +208,20 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 // TODO: ANP milestone 5 -- implement the send, recv, and close calls
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
-    int ret = -ENOSYS;
+    int ret = 0;
     if(is_anp_sockfd(sockfd)) {
         struct anp_socket_t *socket = socket_array[GET_REAL_FD(sockfd)];
 
         struct tcp_pkt* tcp_packet = init_tcp_packet();
-        tcp_packet->hdr->dst_port = socket->tcp_session->dst_port;
+        tcp_packet->hdr->dst_port = socket->dst_port;
         tcp_packet->hdr->src_port = socket->tcp_session->src_port;
-        tcp_packet->size = len;
+        tcp_packet->payload_size = len;
         tcp_packet->buf = malloc(len);
         memcpy(tcp_packet->buf, buf, len);
         
         // TODO: error handling
-        // Bug: the tcp session does not seem to be found, likely cause is the dst_ip (as the rest are directly copied from the sockets tcp session), 
-        // alternatively its cleaned up and we have a race condition
-        send_tcp(tcp_packet, socket->dst_ip);
-        sleep(3); // Let tcpdump catch it
-        assert(ret == 0);
+        printf("Send() %ld to %d:%d\n", len, socket->dst_ip, ntohs(socket->dst_port));
+        ret = send_tcp(tcp_packet, socket->dst_ip);
         return ret;
     }
     // the default path
@@ -223,6 +232,7 @@ ssize_t recv (int sockfd, void *buf, size_t len, int flags){
     int ret = -ENOSYS;
     if(is_anp_sockfd(sockfd)) {
         //TODO: implement your logic here
+        while (true) {}
         assert(ret == 0);
         return ret;
     }

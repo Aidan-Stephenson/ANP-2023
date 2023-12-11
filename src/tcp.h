@@ -96,15 +96,18 @@ void tcp_rx(struct subuff *sub);
 
 #define SYNACK 0x12
 
-// TODO: refactor/add payload, cause won't work for recv/send() -> add packet linked list and send/recv buffers
 struct tcp_session {
     uint16_t src_port;
     uint16_t dst_port;
     uint32_t daddr;
     int state;
-    // TODO: do we need to store these here? Were storing them in the packets themselves too
     uint32_t seq_num;
     uint32_t ack_num;
+    // TODO: Keep track of transmission window
+    int sent_length;   // Used to keep track of transmission window.
+    int recv_length;
+
+    void* recv_buffer;
 
     // next pointer
     struct tcp_session* next;
@@ -116,11 +119,13 @@ struct tcp_session {
 
 struct tcp_pkt {
     struct tcp_hdr* hdr;
+    uint32_t daddr;     // Handled by IP, thus not present in the TCP header.
+
     int retries;
     struct timer* timer;
-    uint32_t daddr;
+
     void* buf;
-    size_t size;
+    size_t payload_size;
 
     struct tcp_pkt* next;
     struct tcp_pkt* prev;
